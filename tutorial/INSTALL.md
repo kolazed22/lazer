@@ -27,7 +27,17 @@ pacman -S mingw-w64-x86_64-arm-none-eabi-gcc
 ```shell
 pacman -S --needed base-devel mingw-w64-ucrt-x86_64-toolchain
 ```
+5. Заходим в параметры windows `win+i`
+6. В поиск вбиваем `Изменение переменных среды текущего пользователя`
+![](/tutorial/img/3.png)
+7. `Path` изменить
+![](/tutorial/img/4.png)
+8. Добавить: `C:\msys64\ucrt64\bin` `C:\msys64\usr\bin` `C:\msys64\mingw64\bin`
+![](/tutorial/img/5.png)
+9. Сохранить
+
 Если что-то не получается, советую обратится к [C/C++ for Visual Studio Code](https://code.visualstudio.com/docs/languages/cpp).
+
 
 
 ## Установка и настройка GTK
