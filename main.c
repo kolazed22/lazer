@@ -12,15 +12,15 @@ static void print_entry(GtkEntry *entry, gpointer   data)
 static void activate (GtkApplication *app, gpointer user_data)
 {
   GtkWidget *window;
-  window = gtk_application_window_new (app);
-  gtk_window_set_title(GTK_WINDOW(window), "Hello");
+  window = gtk_application_window_new (app); // создаём окно
+  gtk_window_set_title(GTK_WINDOW(window), "lazer");
   gtk_window_set_default_size(GTK_WINDOW (window), 500, 300);
 
   GtkWidget *notebook = gtk_notebook_new ();
   gtk_window_set_child (GTK_WINDOW (window), notebook);
   
   GtkWidget *grid = gtk_grid_new();
-  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid, gtk_label_new("Параметры"));
+  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid, gtk_label_new("Параметры лазера"));
 
   GtkWidget *entry_P = gtk_entry_new();
   gtk_entry_set_input_purpose(GTK_ENTRY(entry_P),  GTK_INPUT_PURPOSE_NUMBER);
@@ -35,11 +35,19 @@ static void activate (GtkApplication *app, gpointer user_data)
   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("скорость"),1,2,1,1);
   gtk_grid_attach(GTK_GRID(grid), entry_V, 2,2,1,1);
   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мм/c"),3,2,1,1);
+
+  GtkWidget *entry_F = gtk_entry_new();
+  gtk_entry_set_input_purpose(GTK_ENTRY(entry_F),  GTK_INPUT_PURPOSE_NUMBER);
+  g_signal_connect(entry_F, "activate", G_CALLBACK(print_entry), NULL);
+  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("частота"),1,3,1,1);
+  gtk_grid_attach(GTK_GRID(grid), entry_F, 2,3,1,1);
+  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("кГц"),3,3,1,1);
   
   GtkWidget *button_2;
-  button_2 = gtk_button_new_with_label ("Hello 222222");
+  button_2 = gtk_button_new_with_label ("область");
   g_signal_connect (button_2, "clicked", G_CALLBACK (print_hello), NULL);
-  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), button_2, gtk_label_new("ioio"));
+  GtkWidget *grid2 = gtk_grid_new();
+  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid2, button_2);
 
   gtk_window_present (GTK_WINDOW (window));
 }
