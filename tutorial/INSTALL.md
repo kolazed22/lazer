@@ -38,6 +38,25 @@ pacman -S --needed base-devel mingw-w64-ucrt-x86_64-toolchain
 
 Если что-то не получается, советую обратится к [C/C++ for Visual Studio Code](https://code.visualstudio.com/docs/languages/cpp).
 
+## Работа с GIT
+### Старт
+1. Установить `GIT`
+2. Открываем `VS Code` в рабочей папке 
+3. Клонировать репозиторий
+```shell
+    git clone https://github.com/kolazed22/lazer.git
+```
+4. В `VS Code` есть `Source control` (ctrl + shift + g), от туда можно использовать главные функции `GIT`
+
+### Синхронизация (Sync)
+В `Source control` выбираем `Sync`.
+![](/tutorial/img/6.png)
+### Если нужно сохранить изменения (Commit)
+Сперва нужно синхронизоваться.
+
+В `Source control` над синей кнопкой `Commit` пишем `Message`, затем жмём `Commit`.
+
+
 
 
 ## Установка и настройка GTK
@@ -185,7 +204,7 @@ GTK - это GNU на которой мы будем делать интерфе
 ## Распространение приложения
 Готовый exe файл можно открыть и он будет работать, но на других устройствах нет. Для этого нужно добавить dll файлы к нашему exe файлу. 
 
-Какие dll использует ваш проект можно через:
+Какие dll использует ваш проект можно посмотреть через:
 
 ```shell
     ldd main.exe | sed -n 's/\([^ ]*\) => \/mingw.*/\1/p' | sort
