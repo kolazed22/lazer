@@ -54,8 +54,7 @@ pacman -S --needed base-devel mingw-w64-ucrt-x86_64-toolchain
 ### Если нужно сохранить изменения (Commit)
 Сперва нужно синхронизоваться.
 
-В `Source control` над синей кнопкой `Commit` пишем `Message`, затем жмём `Commit`.
-
+В `Source control` над синей кнопкой `Commit` пишем `Message`, затем жмём `Commit`. Жмём на кнопку `Sync`.
 
 
 
