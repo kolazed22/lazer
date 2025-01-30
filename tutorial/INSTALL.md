@@ -22,7 +22,7 @@
 
 4. Вводим команды
 ```shell
-pacman -S mingw-w64-x86_64-arm-none-eabi-gcc
+pacman -S mingw-w64-x86_64-gcc
 ```
 ```shell
 pacman -S --needed base-devel mingw-w64-ucrt-x86_64-toolchain
@@ -212,3 +212,27 @@ GTK - это GNU на которой мы будем делать интерфе
 
 Все важные `dll` я закинул в папку `lib`.
 
+## Графики kplot
+1. Скачиваем репозиторий с `https://github.com/kristapsdz/kplot`.
+2. Заходим в репозиторий и пишем в консоль (вылезут ошибки - пропускаем):
+
+```shell
+    make
+    make install
+```
+3. Убедимся, что библиотека установлена. В `C:\msys64\usr\local` в `\include` и `\lib` должны появиться файлы kplot.
+4. Добавляем в `.vscode/tasks.json`:
+
+```json
+    "-LC:/msys64/usr/local/lib",
+    "-lkplot",
+```
+```json
+    "-LC:/msys64/mingw64/bin/../lib",
+    "-lcairo"
+```
+5. Добавляем в `.vscode/c_cpp_properties.json`:
+
+```json
+    "C:/msys64/usr/local/include"
+```

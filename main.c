@@ -1,13 +1,14 @@
 #include <gtk/gtk.h>
+#include <cairo.h>
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
 #include <omp.h>
-
+#include <kplot.h>
 
 #define Ntr 8     //количество потоков
-#define pi 3.14159
+#define pi 3.14159  //число пи
 #define Nx1 102     //число узлов по оси х локальной сетки
 #define Ny 64       //число узлов по оси у
 #define Nz 70       //чило узловпо оси z
@@ -21,6 +22,9 @@ GtkWidget *entry_V;
 GtkWidget *entry_F;
 
 GtkWidget *progress_bar;
+
+static double TG[Nx1][Ny][Nz];
+
 /*функция для вычисление теплопроводности*/
 double hcond(double T)
 {
@@ -295,6 +299,8 @@ int minimarker(double v, double f, double P)
                     if (ind == 1)
                         if (T1[Nx1 / 2][0][0] < Tmax)
                         {
+                            // заполняем глобальную переменную для графиков
+                            
                             for (i = 0; i < Nx1; i++)
                             {
                                 for (j = 0; j < Ny; j++)
@@ -518,9 +524,6 @@ int minimarker(double v, double f, double P)
     system("PAUSE");
 
 }
-
-
-
 static void print_hello (GtkWidget *widget, gpointer   data)
 {
   g_print ("Hello World\n");
@@ -537,13 +540,13 @@ void do_thread(){
     double f = strtod(gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry_F))),NULL); 
     if (P > 0 && v > 0 && f > 0){
         minimarker(v, f, P);
-        g_mutex_unlock (&mut);
     }
     else{
         g_print("error value");
     }
+    g_mutex_unlock (&mut);
 }
-static void click_start_button(GtkWidget *widget, gpointer   data)
+void click_start_button(GtkWidget *widget, gpointer   data)
 {
     
         if (g_mutex_trylock (&mut)) 
@@ -553,25 +556,7 @@ static void click_start_button(GtkWidget *widget, gpointer   data)
  		g_print("Программа уже выполняется\n"); 
 
 }
-static void draw_function(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer data)
-{
-  GdkRGBA color;
 
-  cairo_pattern_t *r1; 
-    
-  cairo_set_source_rgba(cr, 0, 0, 0, 1);
-  // cairo_set_line_width(cr, 12);  
-  // cairo_translate(cr, 60, 60);
-  
-  r1 = cairo_pattern_create_radial(0, 100, 200, 150, 100, 70);
-  cairo_pattern_add_color_stop_rgba(r1, 0.9, 0.1, 0.1, 1, 1);
-  cairo_pattern_add_color_stop_rgba(r1, 1, 1, 1, 1, 1);
-  cairo_set_source(cr, r1);
-  cairo_arc(cr,100, 100, 100, 0, G_PI * 2);
-  cairo_fill(cr);
-         
-  cairo_pattern_destroy(r1);
-}
 
 static void activate (GtkApplication *app, gpointer user_data)
 {
@@ -651,12 +636,10 @@ static void activate (GtkApplication *app, gpointer user_data)
   gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Количество потоков"),1,5,1,1);
   gtk_grid_attach(GTK_GRID(grid2), entry_Ntr, 2,5,1,1);
   gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Потоков"),3,5,1,1);
+  
+  GtkWidget *grid3 = gtk_grid_new();
+  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid3, gtk_label_new("Графики"));
 
-  // GtkWidget *area = gtk_drawing_area_new (); // область рисования
-  // gtk_drawing_area_set_content_width (GTK_DRAWING_AREA (area), 200);
-  // gtk_drawing_area_set_content_height (GTK_DRAWING_AREA (area), 200);
-  // gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (area), draw_function ,NULL, NULL);
-  // gtk_grid_attach(GTK_GRID(grid2), area, 1, 1, 1, 1);
 
   gtk_window_present (GTK_WINDOW (window));
 }
