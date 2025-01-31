@@ -14,16 +14,95 @@
 #define Nz 70       //чило узловпо оси z
 #define Nx2 200     //число узлов по оси х глобальной сетки
 
+// многопоточность
 GMutex mut;
 GThread *thread;
 
+// виджет ввода
 GtkWidget *entry_P;
 GtkWidget *entry_V;
 GtkWidget *entry_F;
 
+// виджет полоски прогресса
 GtkWidget *progress_bar;
 
-static double TG[Nx1][Ny][Nz];
+// виджет изображения для графиков
+GtkWidget *image_heatmap_xy;
+
+void interpolate_color(double value, double *r, double *g, double *b) {
+    // Пример интерполяции цвета от синего к красному
+    value = (value - 291.0)/2000.0;
+    *r = value;
+    *g = 0;
+    *b = 1.0 - value;
+    if (value < -10){
+        *r = 0;
+        *g = 0;
+        *b = 0;
+    }
+}
+void draw_heatmap(double x[], double y[], size_t len_x, size_t len_y,double value[len_x][len_y], const char *file_name){
+    cairo_surface_t *surface;
+    cairo_t *cr;
+
+    int grid_size = 1;
+
+    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, len_x, len_y);
+    cr = cairo_create(surface);
+
+    // Заполняем фон белым цветом
+    cairo_set_source_rgb(cr, 1, 1, 1);
+    cairo_paint(cr);
+
+    // Рисуем heatmap
+    for (int iy = 0; iy < len_y; iy++) {
+        for (int ix = 0; ix < len_x; ix++) {
+            // Интерполируем цвет
+            double r, g, b;
+            double v = value[ix][iy];
+            interpolate_color(v, &r, &g, &b);
+
+            // Устанавливаем цвет
+            cairo_set_source_rgb(cr, r, g, b);
+
+            // Рисуем прямоугольник
+            cairo_rectangle(cr, ix, iy, grid_size, grid_size);
+            cairo_fill(cr);
+        }
+    }
+
+    // Сохраняем изображение в файл
+    cairo_surface_write_to_png(surface, file_name);
+    image_heatmap_xy = gtk_image_new_from_file (file_name);
+    // Освобождаем ресурсы
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+
+}
+void draw_plot(double x[], double y[], size_t len, const char *file_name){ // создает график kplot и сохраняет его
+    struct kpair points[len];
+    struct kdata	*d;
+    struct kplot	*p;
+    cairo_surface_t	*surf;
+    size_t           i;
+    cairo_t		    *cr;
+
+    for (i = 0; i < len; i++) {
+        points[i].x = x[i];
+        points[i].y = y[i];
+    }
+    d = kdata_array_alloc(points, len);
+    p = kplot_alloc(NULL);
+    kplot_attach_data(p, d, KPLOT_POINTS, NULL);
+    kdata_destroy(d);
+    surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 600, 400);
+    cr = cairo_create(surf);
+    cairo_surface_destroy(surf);
+    kplot_draw(p, 600.0, 400.0, cr);
+    cairo_surface_write_to_png(cairo_get_target(cr), file_name);
+    cairo_destroy(cr);
+    kplot_free(p);
+}
 
 /*функция для вычисление теплопроводности*/
 double hcond(double T)
@@ -299,20 +378,36 @@ int minimarker(double v, double f, double P)
                     if (ind == 1)
                         if (T1[Nx1 / 2][0][0] < Tmax)
                         {
-                            // заполняем глобальную переменную для графиков
-                            
+                            // создание переменную для графиков
+                            double plot_x[Nx1], plot_y[Ny*2-1], plot_value[Nx1][Ny*2-1];
+
                             for (i = 0; i < Nx1; i++)
                             {
                                 for (j = 0; j < Ny; j++)
                                 {
                                     fprintf(f1, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), y[j], T1[i][j][0]);
-                                    if (j != 0)
+
+                                    // заполняем переменную для графиков
+                                    plot_x[i] = ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1);
+                                    plot_y[j+64] =  y[j];
+                                    plot_value[i][j+64] = T1[i][j][0];
+
+                                    if (j != 0){
                                         fprintf(f1, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), -y[j], T1[i][j][0]);
+
+                                        // заполняем переменную для графиков
+                                        plot_x[i] = ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1);
+                                        plot_y[64-j] =  -y[j];
+                                        plot_value[i][64-j] = T1[i][j][0];
+                                    }
                                 }
                                 for (k = 0; k < Nz; k++)
                                     fprintf(f5, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), z[k], T1[i][0][k]);
                                 
                             }
+                            // строим heatmap
+                            draw_heatmap(plot_x, plot_y, Nx1, Ny*2-1, plot_value, "heatmap.png");
+                            
                             for (i = 0; i < Nx2; i++)
                             {
                                 for (j = 0; j < Ny; j++)
@@ -524,17 +619,8 @@ int minimarker(double v, double f, double P)
     system("PAUSE");
 
 }
-static void print_hello (GtkWidget *widget, gpointer   data)
-{
-  g_print ("Hello World\n");
-}
-static void print_entry(GtkEntry *entry, gpointer   data)
-{
-  g_print (gtk_entry_buffer_get_text (gtk_entry_get_buffer(entry)));
-  g_print("\n");
-}
 
-void do_thread(){
+void do_thread(){ // поток программы minimarker
     double P = strtod(gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry_P))),NULL); 
     double v = strtod(gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry_V))),NULL); 
     double f = strtod(gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry_F))),NULL); 
@@ -542,109 +628,98 @@ void do_thread(){
         minimarker(v, f, P);
     }
     else{
-        g_print("error value");
+        g_print("error value\n");
     }
     g_mutex_unlock (&mut);
 }
-void click_start_button(GtkWidget *widget, gpointer   data)
+void click_start_button(GtkWidget *widget, gpointer   data) // кнопка старта
 {
-    
-        if (g_mutex_trylock (&mut)) 
- 		// thread = g_thread_create ((GThreadFunc) do_thread, NULL, FALSE, NULL);
-        thread = g_thread_new("minimarker", (GThreadFunc) do_thread,NULL);
+        if (g_mutex_trylock (&mut)) // проверка, запущен ли поток с программой minimarker
+            thread = g_thread_new("minimarker", (GThreadFunc) do_thread,NULL);
  	    else 
- 		g_print("Программа уже выполняется\n"); 
+ 		    g_print("Программа уже выполняется\n"); 
 
 }
-
 
 static void activate (GtkApplication *app, gpointer user_data)
 {
-  GtkWidget *window;
-  window = gtk_application_window_new (app); // создаём окно
-  gtk_window_set_title(GTK_WINDOW(window), "lazer");
-  gtk_window_set_default_size(GTK_WINDOW (window), 800, 600);
+    GtkWidget *window;
+    window = gtk_application_window_new (app); // создаём окно
+    gtk_window_set_title(GTK_WINDOW(window), "lazer");
+    gtk_window_set_default_size(GTK_WINDOW (window), 800, 600);
 
-  GtkWidget *notebook = gtk_notebook_new ();
-  gtk_window_set_child (GTK_WINDOW (window), notebook);
-  
-  GtkWidget *grid = gtk_grid_new();
-  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid, gtk_label_new("Параметры лазера"));
+    GtkWidget *notebook = gtk_notebook_new ();
+    gtk_window_set_child (GTK_WINDOW (window), notebook);
+    
+    GtkWidget *grid = gtk_grid_new();
+    gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid, gtk_label_new("Параметры лазера"));
 
-  entry_P = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_P),  GTK_INPUT_PURPOSE_NUMBER); 
-  g_signal_connect(entry_P, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мощьность"),1,1,1,1);
-  gtk_grid_attach(GTK_GRID(grid), entry_P,2,1,1,1);
-  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Вт"),3,1,1,1);
+    entry_P = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_P),  GTK_INPUT_PURPOSE_NUMBER); 
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мощьность"),1,1,1,1);
+    gtk_grid_attach(GTK_GRID(grid), entry_P,2,1,1,1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Вт"),3,1,1,1);
 
-  entry_V = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_P),  GTK_INPUT_PURPOSE_NUMBER);
-  g_signal_connect(entry_V, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("скорость"),1,2,1,1);
-  gtk_grid_attach(GTK_GRID(grid), entry_V, 2,2,1,1);
-  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мм/c"),3,2,1,1);
+    entry_V = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_P),  GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("скорость"),1,2,1,1);
+    gtk_grid_attach(GTK_GRID(grid), entry_V, 2,2,1,1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мм/c"),3,2,1,1);
 
-  entry_F = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_F),  GTK_INPUT_PURPOSE_NUMBER);
-  g_signal_connect(entry_F, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("частота"),1,3,1,1);
-  gtk_grid_attach(GTK_GRID(grid), entry_F, 2,3,1,1);
-  gtk_grid_attach(GTK_GRID(grid), gtk_label_new("кГц"),3,3,1,1);
+    entry_F = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_F),  GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("частота"),1,3,1,1);
+    gtk_grid_attach(GTK_GRID(grid), entry_F, 2,3,1,1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("кГц"),3,3,1,1);
 
-  progress_bar = gtk_progress_bar_new();
-  gtk_grid_attach(GTK_GRID(grid), progress_bar, 1,5,3,2);
-  
-  GtkWidget *button_2 = gtk_button_new_from_icon_name("media-playback-start");  // кнопка с иконкой, стандартные иконки `gtk4-icon-browser.exe`
-  g_signal_connect (button_2, "clicked", G_CALLBACK (click_start_button), NULL);
-  gtk_notebook_set_action_widget (GTK_NOTEBOOK(notebook), button_2,  GTK_PACK_END); // добавление виджета в конец notebook
+    progress_bar = gtk_progress_bar_new();
+    gtk_grid_attach(GTK_GRID(grid), progress_bar, 1,5,3,2);
+    
+    GtkWidget *button_2 = gtk_button_new_from_icon_name("media-playback-start");  // кнопка с иконкой, стандартные иконки `gtk4-icon-browser.exe`
+    g_signal_connect (button_2, "clicked", G_CALLBACK (click_start_button), NULL);
+    gtk_notebook_set_action_widget (GTK_NOTEBOOK(notebook), button_2,  GTK_PACK_END); // добавление виджета в конец notebook
 
-  GtkWidget *grid2 = gtk_grid_new();
-  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid2, gtk_label_new("область"));
+    GtkWidget *grid2 = gtk_grid_new();
+    gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid2, gtk_label_new("область"));
 
-  GtkWidget *entry_Nx1 = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nx1),  GTK_INPUT_PURPOSE_NUMBER);
-  g_signal_connect(entry_Nx1, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси х локальной сетки"),1,1,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), entry_Nx1, 2,1,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,1,1,1);
+    GtkWidget *entry_Nx1 = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nx1),  GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси х локальной сетки"),1,1,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), entry_Nx1, 2,1,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,1,1,1);
 
-  GtkWidget *entry_Ny = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_Ny),  GTK_INPUT_PURPOSE_NUMBER);
-  g_signal_connect(entry_Ny, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси у"),1,2,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), entry_Ny, 2,2,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,2,1,1);
+    GtkWidget *entry_Ny = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_Ny),  GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси у"),1,2,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), entry_Ny, 2,2,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,2,1,1);
 
-  GtkWidget *entry_Nz = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nz),  GTK_INPUT_PURPOSE_NUMBER);
-  g_signal_connect(entry_Nz, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси z"),1,3,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), entry_Nz, 2,3,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,3,1,1);
+    GtkWidget *entry_Nz = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nz),  GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси z"),1,3,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), entry_Nz, 2,3,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,3,1,1);
 
-  GtkWidget *entry_Nx2 = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nx2),  GTK_INPUT_PURPOSE_NUMBER);
-  g_signal_connect(entry_Nx2, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси х глобальной сетки"),1,4,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), entry_Nx2, 2,4,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,4,1,1);
+    GtkWidget *entry_Nx2 = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nx2),  GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси х глобальной сетки"),1,4,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), entry_Nx2, 2,4,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,4,1,1);
 
-  GtkWidget *entry_Ntr = gtk_entry_new();
-  gtk_entry_set_input_purpose(GTK_ENTRY(entry_Ntr),  GTK_INPUT_PURPOSE_NUMBER);
-  g_signal_connect(entry_Ntr, "activate", G_CALLBACK(print_entry), NULL);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Количество потоков"),1,5,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), entry_Ntr, 2,5,1,1);
-  gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Потоков"),3,5,1,1);
-  
-  GtkWidget *grid3 = gtk_grid_new();
-  gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid3, gtk_label_new("Графики"));
+    GtkWidget *entry_Ntr = gtk_entry_new();
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_Ntr),  GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Количество потоков"),1,5,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), entry_Ntr, 2,5,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Потоков"),3,5,1,1);
+    
+    GtkWidget *grid3 = gtk_grid_new();
+    gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid3, gtk_label_new("Графики"));
+    image_heatmap_xy = gtk_image_new_from_file ("heatmap.png");
+    gtk_grid_attach(GTK_GRID(grid3), image_heatmap_xy, 1,1,1,1);
 
+    gtk_window_present (GTK_WINDOW (window));
 
-  gtk_window_present (GTK_WINDOW (window));
 }
-
-
 
 int main (int argc, char **argv)
 {
