@@ -27,58 +27,71 @@ GtkWidget *entry_F;
 GtkWidget *progress_bar;
 
 // виджет изображения для графиков
-GtkWidget *image_heatmap_xy;
+GtkWidget *image_heatmapTxy, *image_heatmapTxz, *image_heatmapTyz, *image_plotTt;
+
+typedef struct {
+    double* t; // время
+    double* T; // температура
+    size_t size;
+} Data_Tt;
+
+void freeData_Tt(Data_Tt* data) { // освобождение памяти
+    free(data->t);
+    free(data->T);
+    data->t = NULL;
+    data->T = NULL;
+    data->size = 0;
+}
+
+Data_Tt fread_Tt(const char *file_name){
+    FILE* file = fopen(file_name, "r");
+    if (file == NULL) {
+        perror("fread_Tt: Failed to open file");
+        exit(EXIT_FAILURE);
+    }
+
+    Data_Tt data;
+    data.size = 0;
+    data.t = NULL;
+    data.T = NULL;
+
+    size_t capacity = 10; // Начальная емкость массива
+    data.t = (double*)malloc(capacity * sizeof(double));
+    data.T = (double*)malloc(capacity * sizeof(double));
+
+    if (data.t == NULL || data.T == NULL) {
+        perror("fread_Tt: Failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
+
+    double val1, val2;
+    while (fscanf(file, "%lf %lf %*lf %*lf", &val1, &val2) == 2) {
+        if (data.size >= capacity) {
+            capacity *= 2;
+            data.t = (double*)realloc(data.t, capacity * sizeof(double));
+            data.T = (double*)realloc(data.T, capacity * sizeof(double));
+            if (data.t == NULL || data.T == NULL) {
+                perror("Failed to reallocate memory");
+                exit(EXIT_FAILURE);
+            }
+        }
+        data.t[data.size] = val1;
+        data.T[data.size] = val2;
+        data.size++;
+    }
+    
+    fclose(file);
+    return data;
+}
 
 void interpolate_color(double value, double *r, double *g, double *b) {
     // Пример интерполяции цвета от синего к красному
-    value = (value - 291.0)/2000.0;
+    value = (value - 291.0)/1700.0;
     *r = value;
     *g = 0;
     *b = 1.0 - value;
-    if (value < -10){
-        *r = 0;
-        *g = 0;
-        *b = 0;
-    }
 }
-void draw_heatmap(double x[], double y[], size_t len_x, size_t len_y,double value[len_x][len_y], const char *file_name){
-    cairo_surface_t *surface;
-    cairo_t *cr;
 
-    int grid_size = 1;
-
-    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, len_x, len_y);
-    cr = cairo_create(surface);
-
-    // Заполняем фон белым цветом
-    cairo_set_source_rgb(cr, 1, 1, 1);
-    cairo_paint(cr);
-
-    // Рисуем heatmap
-    for (int iy = 0; iy < len_y; iy++) {
-        for (int ix = 0; ix < len_x; ix++) {
-            // Интерполируем цвет
-            double r, g, b;
-            double v = value[ix][iy];
-            interpolate_color(v, &r, &g, &b);
-
-            // Устанавливаем цвет
-            cairo_set_source_rgb(cr, r, g, b);
-
-            // Рисуем прямоугольник
-            cairo_rectangle(cr, ix, iy, grid_size, grid_size);
-            cairo_fill(cr);
-        }
-    }
-
-    // Сохраняем изображение в файл
-    cairo_surface_write_to_png(surface, file_name);
-    image_heatmap_xy = gtk_image_new_from_file (file_name);
-    // Освобождаем ресурсы
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
-
-}
 void draw_plot(double x[], double y[], size_t len, const char *file_name){ // создает график kplot и сохраняет его
     struct kpair points[len];
     struct kdata	*d;
@@ -93,15 +106,81 @@ void draw_plot(double x[], double y[], size_t len, const char *file_name){ // с
     }
     d = kdata_array_alloc(points, len);
     p = kplot_alloc(NULL);
-    kplot_attach_data(p, d, KPLOT_POINTS, NULL);
+    kplot_attach_data(p, d, KPLOT_LINES, NULL);
     kdata_destroy(d);
-    surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 600, 400);
+    surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 600, 600);
     cr = cairo_create(surf);
     cairo_surface_destroy(surf);
-    kplot_draw(p, 600.0, 400.0, cr);
+    kplot_draw(p, 600.0, 600.0, cr);
+
+    cairo_set_source_rgb(cr, 0, 0, 0);
+    cairo_set_line_width(cr, 5.0); // Толщина линии
+    cairo_rectangle(cr, 0, 0, 600, 600);
+    cairo_stroke(cr);
+
     cairo_surface_write_to_png(cairo_get_target(cr), file_name);
     cairo_destroy(cr);
     kplot_free(p);
+}
+
+void draw_heatmap_from_txt(const char *read_file_name, const char *write_file_name){
+    FILE* file = fopen(read_file_name, "r");
+    if (file == NULL) {
+        perror("fread_Tt: Failed to open file");
+        exit(EXIT_FAILURE);
+    }
+    cairo_surface_t *surface;
+    cairo_t *cr;
+    
+    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 1000);
+    cr = cairo_create(surface);
+
+    cairo_save(cr);
+    cairo_set_source_rgb(cr, 1, 1, 1);
+    cairo_paint(cr);
+    cairo_translate(cr, 0, 500);
+    cairo_scale(cr, 1.5e6, 1.5e6);
+
+    double val1, val2, val3;
+    while (fscanf(file, "%le %le %lf", &val1, &val2, &val3) == 3) {
+        double r, g, b;
+        interpolate_color(val3, &r, &g, &b);
+        // Устанавливаем цвет
+        cairo_set_source_rgb(cr, r, g, b);
+
+        // Рисуем прямоугольник
+        cairo_rectangle(cr, val1, val2, 0.01e-3, 1e-5);
+
+        cairo_fill(cr);
+    }
+    fclose(file);
+
+    cairo_restore(cr);
+    cairo_set_source_rgb(cr, 0, 0, 0);
+    cairo_set_line_width(cr, 5.0); // Толщина линии
+    cairo_rectangle(cr, 0, 0, 1000, 1000);
+    cairo_stroke(cr);
+
+    cairo_surface_write_to_png(surface, write_file_name);
+    // Освобождаем ресурсы
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+}
+
+void update_plots(GtkWidget *widget, gpointer data){
+    Data_Tt data_Tt = fread_Tt("out_Tt.txt");
+    draw_plot(data_Tt.t, data_Tt.T, data_Tt.size, "plotTt.png");
+    freeData_Tt(&data_Tt);
+
+    draw_heatmap_from_txt("out_Txy.txt", "heatmapTxy.png");
+    draw_heatmap_from_txt("out_Txz.txt", "heatmapTxz.png");
+    draw_heatmap_from_txt("out_Tyz.txt", "heatmapTyz.png");
+
+    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxy), "heatmapTxy.png");
+    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxz), "heatmapTxz.png");
+    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTyz), "heatmapTyz.png");
+    gtk_image_set_from_file(GTK_IMAGE(image_plotTt)    , "plotTt.png"    );
+
 }
 
 /*функция для вычисление теплопроводности*/
@@ -378,35 +457,19 @@ int minimarker(double v, double f, double P)
                     if (ind == 1)
                         if (T1[Nx1 / 2][0][0] < Tmax)
                         {
-                            // создание переменную для графиков
-                            double plot_x[Nx1], plot_y[Ny*2-1], plot_value[Nx1][Ny*2-1];
-
                             for (i = 0; i < Nx1; i++)
                             {
                                 for (j = 0; j < Ny; j++)
                                 {
                                     fprintf(f1, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), y[j], T1[i][j][0]);
-
-                                    // заполняем переменную для графиков
-                                    plot_x[i] = ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1);
-                                    plot_y[j+64] =  y[j];
-                                    plot_value[i][j+64] = T1[i][j][0];
-
                                     if (j != 0){
                                         fprintf(f1, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), -y[j], T1[i][j][0]);
-
-                                        // заполняем переменную для графиков
-                                        plot_x[i] = ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1);
-                                        plot_y[64-j] =  -y[j];
-                                        plot_value[i][64-j] = T1[i][j][0];
                                     }
                                 }
                                 for (k = 0; k < Nz; k++)
                                     fprintf(f5, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), z[k], T1[i][0][k]);
                                 
                             }
-                            // строим heatmap
-                            draw_heatmap(plot_x, plot_y, Nx1, Ny*2-1, plot_value, "heatmap.png");
                             
                             for (i = 0; i < Nx2; i++)
                             {
@@ -616,6 +679,7 @@ int minimarker(double v, double f, double P)
     fclose(f6);
     timeprog = clock() - timeprog;
     printf("\nProgram running time=%f s\n", (double)timeprog / CLOCKS_PER_SEC);
+    update_plots(NULL, NULL);
     system("PAUSE");
 
 }
@@ -632,16 +696,17 @@ void do_thread(){ // поток программы minimarker
     }
     g_mutex_unlock (&mut);
 }
-void click_start_button(GtkWidget *widget, gpointer   data) // кнопка старта
+
+void click_start_button(GtkWidget *widget, gpointer data) // кнопка старта
 {
-        if (g_mutex_trylock (&mut)) // проверка, запущен ли поток с программой minimarker
-            thread = g_thread_new("minimarker", (GThreadFunc) do_thread,NULL);
- 	    else 
- 		    g_print("Программа уже выполняется\n"); 
+    if (g_mutex_trylock (&mut)) // проверка, запущен ли поток с программой minimarker
+        thread = g_thread_new("minimarker", (GThreadFunc) do_thread,NULL);
+    else 
+        g_print("Программа уже выполняется\n"); 
 
 }
 
-static void activate (GtkApplication *app, gpointer user_data)
+static void activate(GtkApplication *app, gpointer user_data)
 {
     GtkWidget *window;
     window = gtk_application_window_new (app); // создаём окно
@@ -713,12 +778,31 @@ static void activate (GtkApplication *app, gpointer user_data)
     gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Потоков"),3,5,1,1);
     
     GtkWidget *grid3 = gtk_grid_new();
+    gtk_grid_set_column_homogeneous (GTK_GRID(grid3), FALSE);
+    gtk_grid_set_row_homogeneous(GTK_GRID(grid3), FALSE);
     gtk_notebook_append_page (GTK_NOTEBOOK (notebook), grid3, gtk_label_new("Графики"));
-    image_heatmap_xy = gtk_image_new_from_file ("heatmap.png");
-    gtk_grid_attach(GTK_GRID(grid3), image_heatmap_xy, 1,1,1,1);
+
+    GtkWidget *button_plots = gtk_button_new_with_label("Redraw");
+    gtk_grid_attach(GTK_GRID(grid3), button_plots, 1, 1, 2, 1);
+    g_signal_connect(button_plots, "clicked", G_CALLBACK (update_plots), NULL);
+
+    image_heatmapTxy = gtk_image_new_from_file ("heatmapTxy.png");
+    gtk_grid_attach(GTK_GRID(grid3), image_heatmapTxy, 1,2,1,1);
+    gtk_widget_set_size_request(image_heatmapTxy, 300, 300);
+
+    image_heatmapTxz = gtk_image_new_from_file ("heatmapTxz.png");
+    gtk_grid_attach(GTK_GRID(grid3), image_heatmapTxz, 2,2,1,1);
+    gtk_widget_set_size_request(image_heatmapTxz, 300, 300);
+
+    image_heatmapTyz = gtk_image_new_from_file ("heatmapTyz.png");
+    gtk_grid_attach(GTK_GRID(grid3), image_heatmapTyz, 1,3,1,1);
+    gtk_widget_set_size_request(image_heatmapTyz, 300, 300);
+
+    image_plotTt = gtk_image_new_from_file ("plotTt.png");
+    gtk_grid_attach(GTK_GRID(grid3), image_plotTt, 2,3,1,1);
+    gtk_widget_set_size_request(image_plotTt, 300, 300);
 
     gtk_window_present (GTK_WINDOW (window));
-
 }
 
 int main (int argc, char **argv)
