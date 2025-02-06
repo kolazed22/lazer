@@ -84,27 +84,131 @@ Data_Tt fread_Tt(const char *file_name){
     return data;
 }
 
-void interpolate_color(double value, double *r, double *g, double *b) {
-    // Пример интерполяции цвета от синего к красному
-    value = (value - 291.0)/1700.0;
-    *r = value;
-    *g = 0;
-    *b = 1.0 - value;
+typedef struct {
+    double* x; // x
+    double* y; // x
+    double* T; // температура
+    size_t size;
+
+    double max_x;
+    double min_x;
+    double max_y;
+    double min_y;
+    double max_T;
+    double min_T;
+} Data_Txx;
+
+void freeData_Txx(Data_Txx* data) { // освобождение памяти
+    free(data->x);
+    free(data->y);
+    free(data->T);
+    data->x = NULL;
+    data->y = NULL;
+    data->T = NULL;
+    data->size = 0;
+    data->max_x = 0;
+    data->min_x = 0;
+    data->max_y = 0;
+    data->min_y = 0;
+    data->max_T = 0;
+    data->min_T = 0;
 }
 
-void draw_plot(double x[], double y[], size_t len, const char *file_name){ // создает график kplot и сохраняет его
-    struct kpair points[len];
+Data_Txx fread_Txx(const char *file_name){
+    FILE* file = fopen(file_name, "r");
+    if (file == NULL) {
+        perror("fread_Txx: Failed to open file");
+        exit(EXIT_FAILURE);
+    }
+
+    Data_Txx data;
+    data.size = 0;
+    data.x = NULL;
+    data.y = NULL;
+    data.T = NULL;
+
+    size_t capacity = 10; // Начальная емкость массива
+    data.x = (double*)malloc(capacity * sizeof(double));
+    data.y = (double*)malloc(capacity * sizeof(double));
+    data.T = (double*)malloc(capacity * sizeof(double));
+
+    if (data.x == NULL || data.y == NULL || data.T == NULL) {
+        perror("fread_Txx: Failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
+
+    double val1, val2, val3;
+    while (fscanf(file, "%le %le %lf", &val1, &val2, &val3) == 3) {
+        if (data.size >= capacity) {
+            capacity *= 2;
+            data.x = (double*)realloc(data.x, capacity * sizeof(double));
+            data.y = (double*)realloc(data.y, capacity * sizeof(double));
+            data.T = (double*)realloc(data.T, capacity * sizeof(double));
+            if (data.x == NULL || data.y == NULL || data.T == NULL) {
+                perror("Failed to reallocate memory");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        data.x[data.size] = val1;
+        data.y[data.size] = val2;
+        data.T[data.size] = val3;
+        data.size++;
+
+        if (data.max_x < val1)
+            data.max_x = val1;
+        if (data.min_x > val1)
+            data.min_x = val1;
+        if (data.max_y < val2)
+            data.max_y = val2;
+        if (data.min_y > val2)
+            data.min_y = val2;
+        if (data.max_T < val3)
+            data.max_T = val3;
+        if (data.min_T > val3)
+            data.min_T = val3;
+    }
+    
+    fclose(file);
+    return data;
+}
+
+// Функция линейной интерполяции
+double lerp(double v0, double v1, double t) {
+    return v0 + (v1 - v0) * t;
+}
+
+// Функция двулинейной интерполяции
+double biline_interpolate(double x, double y, double x0, double y0, double q00, double x1, double y1, double q11, double q01, double q10){
+    double xd = (x - x0) / (x1 - x0);
+    double yd = (y - y0) / (y1 - y0);
+
+    double c0 = lerp(q00, q10, xd);
+    double c1 = lerp(q01, q11, xd);
+
+    return lerp(c0, c1, yd);
+}
+
+void interpolate_color(double value, double min, double max, double *r, double *g, double *b) {
+    double v = (value - min)/(max-min);
+    *r = MAX(0,  2*v - 1);
+    *b = MAX(0, -2*v+ 1);
+    *g = 1 - *r - *b;
+}
+
+void draw_plot(Data_Tt data, const char *file_write_name){ // создает график kplot и сохраняет его
+    struct kpair points[data.size];
     struct kdata	*d;
     struct kplot	*p;
     cairo_surface_t	*surf;
     size_t           i;
     cairo_t		    *cr;
 
-    for (i = 0; i < len; i++) {
-        points[i].x = x[i];
-        points[i].y = y[i];
+    for (i = 0; i < data.size; i++) {
+        points[i].x = data.t[i];
+        points[i].y = data.T[i];
     }
-    d = kdata_array_alloc(points, len);
+    d = kdata_array_alloc(points, data.size);
     p = kplot_alloc(NULL);
     kplot_attach_data(p, d, KPLOT_LINES, NULL);
     kdata_destroy(d);
@@ -118,47 +222,56 @@ void draw_plot(double x[], double y[], size_t len, const char *file_name){ // с
     cairo_rectangle(cr, 0, 0, 600, 600);
     cairo_stroke(cr);
 
-    cairo_surface_write_to_png(cairo_get_target(cr), file_name);
+    cairo_surface_write_to_png(cairo_get_target(cr), file_write_name);
     cairo_destroy(cr);
     kplot_free(p);
 }
 
-void draw_heatmap_from_txt(const char *read_file_name, const char *write_file_name){
-    FILE* file = fopen(read_file_name, "r");
-    if (file == NULL) {
-        perror("fread_Tt: Failed to open file");
-        exit(EXIT_FAILURE);
+double dist(double x1, double y1, double x2, double y2){ // растояние между точками в квадрате
+    return (x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
+}
+
+double find_nearest_points(Data_Txx data, double x, double y){
+    // double near_ix = 0;
+    // double near_iy = 0;
+    double near_T = 0;
+    double near_r = dist(data.min_x, data.min_y, data.max_x, data.max_y);
+
+    for (int i = 0; i < data.size; i++){
+        double r = dist(x, y, data.x[i], data.y[i]);
+        if (near_r > r) {
+            near_r = r;
+            near_T = data.T[i];
+        }
     }
-    cairo_surface_t *surface;
-    cairo_t *cr;
+    return near_T;
+}
+
+void draw_heatmap(Data_Txx data, int width, int height, const char *write_file_name){
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    cairo_t *cr = cairo_create(surface);
+
+    double scale_x = (data.max_x - data.min_x)/width;
+    double scale_y = (data.max_y - data.min_y)/height;
+    if (scale_x < scale_y)  scale_y = scale_x;
+    if (scale_x > scale_y)  scale_x = scale_y;
     
-    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 1000);
-    cr = cairo_create(surface);
+    for (int iy = 0; iy < height; iy++){
+        for (int ix = 0; ix < width; ix++){
+            double value = find_nearest_points(data, ix*scale_x+data.min_x, iy*scale_y+data.min_y);
+            double r, g, b;
+            interpolate_color(value, data.min_T, data.max_T, &r, &g, &b);
+            // Устанавливаем цвет
+            cairo_set_source_rgb(cr, r, g, b);
+            // Рисуем прямоугольник
+            cairo_rectangle(cr, ix, iy, 1, 1);
 
-    cairo_save(cr);
-    cairo_set_source_rgb(cr, 1, 1, 1);
-    cairo_paint(cr);
-    cairo_translate(cr, 0, 500);
-    cairo_scale(cr, 1.5e6, 1.5e6);
-
-    double val1, val2, val3;
-    while (fscanf(file, "%le %le %lf", &val1, &val2, &val3) == 3) {
-        double r, g, b;
-        interpolate_color(val3, &r, &g, &b);
-        // Устанавливаем цвет
-        cairo_set_source_rgb(cr, r, g, b);
-
-        // Рисуем прямоугольник
-        cairo_rectangle(cr, val1, val2, 0.01e-3, 1e-5);
-
-        cairo_fill(cr);
+            cairo_fill(cr);
+        }
     }
-    fclose(file);
-
-    cairo_restore(cr);
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_set_line_width(cr, 5.0); // Толщина линии
-    cairo_rectangle(cr, 0, 0, 1000, 1000);
+    cairo_rectangle(cr, 0, 0, width, height);
     cairo_stroke(cr);
 
     cairo_surface_write_to_png(surface, write_file_name);
@@ -167,14 +280,23 @@ void draw_heatmap_from_txt(const char *read_file_name, const char *write_file_na
     cairo_surface_destroy(surface);
 }
 
+
 void update_plots(GtkWidget *widget, gpointer data){
     Data_Tt data_Tt = fread_Tt("out_Tt.txt");
-    draw_plot(data_Tt.t, data_Tt.T, data_Tt.size, "plotTt.png");
+    draw_plot(data_Tt, "plotTt.png");
     freeData_Tt(&data_Tt);
 
-    draw_heatmap_from_txt("out_Txy.txt", "heatmapTxy.png");
-    draw_heatmap_from_txt("out_Txz.txt", "heatmapTxz.png");
-    draw_heatmap_from_txt("out_Tyz.txt", "heatmapTyz.png");
+    Data_Txx data_Txy = fread_Txx("out_Txy.txt");
+    draw_heatmap(data_Txy, 500, 500, "heatmapTxy.png");
+    freeData_Txx(&data_Txy);
+
+    Data_Txx data_Txz = fread_Txx("out_Txz.txt");
+    draw_heatmap(data_Txz, 500, 500, "heatmapTxz.png");
+    freeData_Txx(&data_Txz);
+
+    Data_Txx data_Tyz = fread_Txx("out_Tyz.txt");
+    draw_heatmap(data_Tyz, 500, 500, "heatmapTyz.png");
+    freeData_Txx(&data_Tyz);
 
     gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxy), "heatmapTxy.png");
     gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxz), "heatmapTxz.png");
