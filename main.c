@@ -132,6 +132,8 @@ Data_Txx fread_Txx(const char *file_name){
     data.y = (double*)malloc(capacity * sizeof(double));
     data.T = (double*)malloc(capacity * sizeof(double));
 
+    bool firs_read_flag = false;
+
     if (data.x == NULL || data.y == NULL || data.T == NULL) {
         perror("fread_Txx: Failed to allocate memory");
         exit(EXIT_FAILURE);
@@ -139,6 +141,16 @@ Data_Txx fread_Txx(const char *file_name){
 
     double val1, val2, val3;
     while (fscanf(file, "%le %le %lf", &val1, &val2, &val3) == 3) {
+        if (firs_read_flag == false){
+            data.max_T = val3;
+            data.min_T = val3;
+            data.max_x = val1;
+            data.min_x = val1;
+            data.max_y = val2;
+            data.min_y = val2;
+            firs_read_flag = true;
+        }
+
         if (data.size >= capacity) {
             capacity *= 2;
             data.x = (double*)realloc(data.x, capacity * sizeof(double));
@@ -155,38 +167,78 @@ Data_Txx fread_Txx(const char *file_name){
         data.T[data.size] = val3;
         data.size++;
 
-        if (data.max_x < val1)
-            data.max_x = val1;
-        if (data.min_x > val1)
-            data.min_x = val1;
-        if (data.max_y < val2)
-            data.max_y = val2;
-        if (data.min_y > val2)
-            data.min_y = val2;
-        if (data.max_T < val3)
-            data.max_T = val3;
-        if (data.min_T > val3)
-            data.min_T = val3;
+        if (data.max_x < val1)  data.max_x = val1;
+        if (data.min_x > val1)  data.min_x = val1;
+        if (data.max_y < val2)  data.max_y = val2;
+        if (data.min_y > val2)  data.min_y = val2;
+        if (data.max_T < val3)  data.max_T = val3;
+        if (data.min_T > val3)  data.min_T = val3;
     }
     
     fclose(file);
     return data;
 }
 
-// Функция линейной интерполяции
-double lerp(double v0, double v1, double t) {
-    return v0 + (v1 - v0) * t;
-}
+Data_Txx shape_Txx(Data_Txx *data){ // обрезает данные, после вызова старые данные удаляются автоматически
+    Data_Txx shape_data;
+    shape_data.size = 0;
+    shape_data.x = NULL;
+    shape_data.y = NULL;
+    shape_data.T = NULL;
+    // определим размер обрезки
+    double shape_up = data->min_y;
+    double shape_down = data->max_y;
+    double shape_left = data->max_x;
+    double shape_right = data->min_x;
+    for (int i = 0; i < data->size; i++){
+        if (data->T[i] > data->min_T){
+            if (shape_up < data->y[i])      shape_up = data->y[i];
+            if (shape_down > data->y[i])    shape_down = data->y[i];
+            if (shape_left > data->x[i])    shape_left = data->x[i];
+            if (shape_right < data->x[i])   shape_right = data->x[i];
+        }
+    }
+    // обрежим данные
+    size_t capacity = 10; // Начальная емкость массива
+    shape_data.x = (double*)malloc(capacity * sizeof(double));
+    shape_data.y = (double*)malloc(capacity * sizeof(double));
+    shape_data.T = (double*)malloc(capacity * sizeof(double));
 
-// Функция двулинейной интерполяции
-double biline_interpolate(double x, double y, double x0, double y0, double q00, double x1, double y1, double q11, double q01, double q10){
-    double xd = (x - x0) / (x1 - x0);
-    double yd = (y - y0) / (y1 - y0);
+    if (shape_data.x == NULL || shape_data.y == NULL || shape_data.T == NULL) {
+        perror("shape_Txx: Failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
 
-    double c0 = lerp(q00, q10, xd);
-    double c1 = lerp(q01, q11, xd);
+    for (int i = 0; i < data->size; i++){
+        if (shape_data.size >= capacity) {
+            capacity *= 2;
+            shape_data.x = (double*)realloc(shape_data.x, capacity * sizeof(double));
+            shape_data.y = (double*)realloc(shape_data.y, capacity * sizeof(double));
+            shape_data.T = (double*)realloc(shape_data.T, capacity * sizeof(double));
+            if (shape_data.x == NULL || shape_data.y == NULL || shape_data.T == NULL) {
+                perror("shape_Txx: Failed to reallocate memory");
+                exit(EXIT_FAILURE);
+            }
+        }
 
-    return lerp(c0, c1, yd);
+        if (data->y[i] <= shape_up && data->y[i] >= shape_down && data->x[i] <= shape_right && data->x[i] >= shape_left){
+            shape_data.x[shape_data.size] = data->x[i];
+            shape_data.y[shape_data.size] = data->y[i];
+            shape_data.T[shape_data.size] = data->T[i];
+            shape_data.size++;
+
+            if (shape_data.max_x < data->x[i])  shape_data.max_x = data->x[i];
+            if (shape_data.min_x > data->x[i])  shape_data.min_x = data->x[i];
+            if (shape_data.max_y < data->y[i])  shape_data.max_y = data->y[i];
+            if (shape_data.min_y > data->y[i])  shape_data.min_y = data->y[i];
+            if (shape_data.max_T < data->T[i])  shape_data.max_T = data->T[i];
+            if (shape_data.min_T > data->T[i])  shape_data.min_T = data->T[i];
+        }
+    }
+
+    freeData_Txx(data);
+
+    return shape_data;
 }
 
 void interpolate_color(double value, double min, double max, double *r, double *g, double *b) {
@@ -247,14 +299,127 @@ double find_nearest_points(Data_Txx data, double x, double y){
     return near_T;
 }
 
+typedef struct{
+    double x1, y1, T1;
+    double x2, y2, T2;
+    double x3, y3, T3;
+    double x4, y4, T4;
+}Points;
+
+Points find_nearest_4points(Data_Txx data, double x, double y){ // нахождение 4 ближайших точек вокруг указанной
+    int ur, ul, dr, dl;
+    double ur_r, ul_r, dr_r, dl_r;
+    ur_r = dist(data.min_x, data.min_y, data.max_x, data.max_y);
+    ul_r = ur_r;
+    dr_r = ur_r;
+    dl_r = ur_r;
+
+    Points point;
+    for (int i = 0; i < data.size; i++){
+        double r = dist(x, y, data.x[i], data.y[i]);
+        if (ur_r > r && x < data.x[ur] && y < data.y[ur]) {
+            ur_r = r;
+            point.x1 = data.x[ur];
+            point.y1 = data.y[ur];
+            point.T1 = data.T[ur];
+        }
+        if (ul_r > r && data.x[ul] < x && y < data.y[ul] ) {
+            ul_r = r;
+            point.x2 = data.x[ul];
+            point.y2 = data.y[ul];
+            point.T2 = data.T[ul];
+        }
+        if (dr_r > r && x < data.x[dr] && data.y[dr] < y ) {
+            dr_r = r;
+            point.x3 = data.x[dr];
+            point.y3 = data.y[dr];
+            point.T3 = data.T[dr];
+        }
+        if (dl_r > r && data.x[dl] < x && data.y[dl] < y ) {
+            dl_r = r;
+            point.x4 = data.x[dl];
+            point.y4 = data.y[dl];
+            point.T4 = data.T[dl];
+        }
+    }
+
+    return point;
+}
+
+// Функция линейной интерполяции
+double lerp(double v0, double v1, double t) {
+    return v0 + (v1 - v0) * t;
+}
+
+// Функция двулинейной интерполяции
+double biline_interpolate(double x, double y, Points p){
+    double xd = (x - p.x4) / (p.x1 - p.x4);
+    double yd = (y - p.y4) / (p.y1 - p.y4);
+
+    double c0 = lerp(p.T4, p.T3, xd);
+    double c1 = lerp(p.T2, p.T1, xd);
+
+    return lerp(c0, c1, yd);
+}
+
+void draw_hetmap_4points(Data_Txx data, int width, int height, const char *write_file_name){
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    cairo_t *cr = cairo_create(surface);
+
+    double dx = 1e-9;
+    double dy = 1e-9;
+    double x = data.min_x + dx;
+    double y = data.min_y + dy;
+
+    double scale_x = (data.max_x - data.min_x)/width;
+    double scale_y = (data.max_y - data.min_y)/height;
+    if (scale_x < scale_y)  scale_y = scale_x;
+    if (scale_x > scale_y)  scale_x = scale_y;
+
+    
+    int ix = 0;
+    int iy = 0;
+    Points points = find_nearest_4points(data, ix*scale_x+data.min_x+dx, iy*scale_y+data.min_y+dy);
+    while (ix < width || iy < height)
+    {
+        ix = (x - data.min_x)/scale_x;
+    }
+    
+
+    for (int iy = 0; iy < height; iy++){
+        for (int ix = 0; ix < width; ix++){
+            Points points = find_nearest_4points(data, x, y);
+            double value = biline_interpolate(x, y, points);
+
+            double r, g, b;
+            interpolate_color(value, data.min_T, data.max_T, &r, &g, &b);
+            // Устанавливаем цвет
+            cairo_set_source_rgb(cr, r, g, b);
+            // Рисуем прямоугольник
+            cairo_rectangle(cr, ix, iy, 1, 1);
+
+            cairo_fill(cr);
+        }
+    }
+    cairo_set_source_rgb(cr, 0, 0, 0);
+    cairo_set_line_width(cr, 2.0); // Толщина линии
+    cairo_rectangle(cr, 0, 0, width, height);
+    cairo_stroke(cr);
+
+    cairo_surface_write_to_png(surface, write_file_name);
+    // Освобождаем ресурсы
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+}
+
 void draw_heatmap(Data_Txx data, int width, int height, const char *write_file_name){
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     cairo_t *cr = cairo_create(surface);
 
     double scale_x = (data.max_x - data.min_x)/width;
     double scale_y = (data.max_y - data.min_y)/height;
-    if (scale_x < scale_y)  scale_y = scale_x;
-    if (scale_x > scale_y)  scale_x = scale_y;
+    if (scale_x < scale_y)  scale_x = scale_y;
+    if (scale_x > scale_y)  scale_y = scale_x;
     
     for (int iy = 0; iy < height; iy++){
         for (int ix = 0; ix < width; ix++){
@@ -270,7 +435,7 @@ void draw_heatmap(Data_Txx data, int width, int height, const char *write_file_n
         }
     }
     cairo_set_source_rgb(cr, 0, 0, 0);
-    cairo_set_line_width(cr, 5.0); // Толщина линии
+    cairo_set_line_width(cr, 2.0); // Толщина линии
     cairo_rectangle(cr, 0, 0, width, height);
     cairo_stroke(cr);
 
@@ -287,16 +452,19 @@ void update_plots(GtkWidget *widget, gpointer data){
     freeData_Tt(&data_Tt);
 
     Data_Txx data_Txy = fread_Txx("out_Txy.txt");
-    draw_heatmap(data_Txy, 500, 500, "heatmapTxy.png");
-    freeData_Txx(&data_Txy);
+    Data_Txx data_Txy_shape = shape_Txx(&data_Txy);
+    draw_heatmap(data_Txy_shape, 300, 300, "heatmapTxy.png");
+    freeData_Txx(&data_Txy_shape);
 
     Data_Txx data_Txz = fread_Txx("out_Txz.txt");
-    draw_heatmap(data_Txz, 500, 500, "heatmapTxz.png");
-    freeData_Txx(&data_Txz);
+    Data_Txx data_Txz_shape = shape_Txx(&data_Txz);
+    draw_heatmap(data_Txz_shape, 300, 300, "heatmapTxz.png");
+    freeData_Txx(&data_Txz_shape);
 
     Data_Txx data_Tyz = fread_Txx("out_Tyz.txt");
-    draw_heatmap(data_Tyz, 500, 500, "heatmapTyz.png");
-    freeData_Txx(&data_Tyz);
+    Data_Txx data_Tyz_shape = shape_Txx(&data_Tyz);
+    draw_heatmap(data_Tyz_shape, 300, 300, "heatmapTyz.png");
+    freeData_Txx(&data_Tyz_shape);
 
     gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxy), "heatmapTxy.png");
     gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxz), "heatmapTxz.png");
