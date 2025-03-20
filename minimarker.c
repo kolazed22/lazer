@@ -1,14 +1,12 @@
-﻿#include <stdio.h>
-#include <math.h>
-#include <stdlib.h>
-#include <time.h>
-#include <omp.h>
+#include "main.h"
+
 #define Ntr 8     //количество потоков
-#define pi 3.14159
+#define pi 3.14159  //число пи
 #define Nx1 102     //число узлов по оси х локальной сетки
 #define Ny 64       //число узлов по оси у
 #define Nz 70       //чило узловпо оси z
 #define Nx2 200     //число узлов по оси х глобальной сетки
+
 /*функция для вычисление теплопроводности*/
 double hcond(double T)
 {
@@ -42,7 +40,8 @@ double int_energy(double T)
     //Eint = 2.5e6 * (T - T0);
     return Eint;
 }
-int main(void)
+
+int minimarker(double v, double f, double P, GtkWidget *progress_bar)
 {
     static double T1[Nx1][Ny][Nz], T2[Nx2][Ny][Nz];  //массивы для температуры на локальной и глобальной сетках
     static double ATz1[Nz], BTz1[Nz], ATy1[Ny], BTy1[Ny], ATx1[Nx1], BTx1[Nx1];
@@ -58,10 +57,10 @@ int main(void)
            l0 = 1.06e-6,        //длина волны
            A = 0.4,             //поглощательная способность
            po=4300,             // плотность 
-           P,                   //средняя мощность
+          //  P,                   //средняя мощность
            Q0,                  //плотность энергии в центре пучка
-           f,                   //частота следования импульсов
-           v,                   //скорость сканирования
+          //  f,                   //частота следования импульсов
+          //  v,                   //скорость сканирования
            cs,
            ks0,
            ks1;
@@ -87,18 +86,19 @@ int main(void)
 
 
     /*ввод скорости, частоты и средней мощности с клавиатуры*/
-    printf("Input v (mm/s):");
-    scanf_s("%lf", &v);
-    printf("Input f (kHz):");
-    scanf_s("%lf", &f);
-    printf("Input P (W):");
-    scanf_s("%lf", &P);
+    // printf("Input v (mm/s):");
+    // scanf_s("%lf", &v);
+    // printf("Input f (kHz):");
+    // scanf_s("%lf", &f);
+    // printf("Input P (W):");
+    // scanf_s("%lf", &P);
     printf("\n\nP=%.2f W\nv=%.2f mm/s\nf=%.2f kHz\nr0=%.2f um\ntp=%.3f ns\n\n", P, v, f, r0 * 1e6, 2.5 * t0 * 1e9);
 
 
     clock_t timeprog;
     timeprog = clock();
     printf("executing...  %.2f%%\r", 0);
+    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progress_bar), 0.0);
     f = f * 1e3;
     v = v / 1e3;
     i0 = i00;
@@ -286,13 +286,15 @@ int main(void)
                                 for (j = 0; j < Ny; j++)
                                 {
                                     fprintf(f1, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), y[j], T1[i][j][0]);
-                                    if (j != 0)
+                                    if (j != 0){
                                         fprintf(f1, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), -y[j], T1[i][j][0]);
+                                    }
                                 }
                                 for (k = 0; k < Nz; k++)
                                     fprintf(f5, "%e   %e   %.3f\n", ((i0 * dx2 - Nx1 / 2 * dx1) + i * dx1), z[k], T1[i][0][k]);
                                 
                             }
+                            
                             for (i = 0; i < Nx2; i++)
                             {
                                 for (j = 0; j < Ny; j++)
@@ -490,6 +492,7 @@ int main(void)
                     T1[Nx1 - i - 1][j][k] = T2[ni][j][k] + ((i0 - ni) * dx2 - (i - Nx1 / 2 + 1) * dx1) * (T2[ni + 1][j][k] - T2[ni][j][k]) / dx2;
                 }
         printf("executing...  %.2f%%\r", 100 * (double)(np + 1) / Np);
+        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progress_bar), (double)(np + 1) / Np);
 
     }
     fclose(f1);
@@ -500,8 +503,7 @@ int main(void)
     fclose(f6);
     timeprog = clock() - timeprog;
     printf("\nProgram running time=%f s\n", (double)timeprog / CLOCKS_PER_SEC);
+    update_plots(NULL, NULL);
     system("PAUSE");
-    return 0;
 
 }
-
