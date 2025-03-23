@@ -13,6 +13,9 @@
 
 // Путь к каталогу материалов
 const char *directory_path_materials;
+// Путь к временным файлам
+#define DIR_TEMP "tmp"
+
 // многопоточность
 GMutex mut;
 GThread *thread;

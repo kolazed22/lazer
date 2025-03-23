@@ -228,7 +228,7 @@ Data_Txx shape_Txx(Data_Txx *data){ // обрезает данные, после
     shape_data.T = (double*)malloc(capacity * sizeof(double));
 
     if (shape_data.x == NULL || shape_data.y == NULL || shape_data.T == NULL) {
-        perror("shape_Txx: Failed to allocate memory");
+        g_critical("shape_Txx: Failed to allocate memory");
         exit(EXIT_FAILURE);
     }
 
@@ -239,7 +239,7 @@ Data_Txx shape_Txx(Data_Txx *data){ // обрезает данные, после
             shape_data.y = (double*)realloc(shape_data.y, capacity * sizeof(double));
             shape_data.T = (double*)realloc(shape_data.T, capacity * sizeof(double));
             if (shape_data.x == NULL || shape_data.y == NULL || shape_data.T == NULL) {
-                perror("shape_Txx: Failed to reallocate memory");
+                g_critical("shape_Txx: Failed to reallocate memory");
                 exit(EXIT_FAILURE);
             }
         }
@@ -279,6 +279,7 @@ void draw_plot_TC(Data_TC data, const char *file_write_name){ // создает 
     cairo_surface_t	*surf;
     size_t           i;
     cairo_t		    *cr;
+
 
     for (i = 0; i < data.size; i++) {
         points[i].x = data.T[i];

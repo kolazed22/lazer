@@ -69,12 +69,12 @@ int minimarker(double v, double f, double P, GtkWidget *progress_bar)
     double time = 0, time1, time2, timestep = 10e-9, counttime;
     double delta = 0, Tmax = 0;
     FILE* f1, * f2, * f3, * f4, * f5, * f6, * f7, * f8, * f9, * f10, * f11;
-    fopen_s(&f1, "out_Txy.txt", "w"); //распределение температуры в плоскости xy  
-    fopen_s(&f2, "out_Tz.txt", "w");  //зависимость температуры от глубины в центре трека в момент времени достижения максимальной температуры
-    fopen_s(&f3, "out_Tt.txt", "w");  // зависимость темпеарутры поверхности для точки в центре трека от времени
-    fopen_s(&f4, "out_test.txt", "w"); 
-    fopen_s(&f5, "out_Txz.txt", "w");  //распределение температуры в плоскости xz  
-    fopen_s(&f6, "out_Tyz.txt", "w");  //распределение температуры в плоскости yz  
+    fopen_s(&f1, g_build_filename(DIR_TEMP,"out_Txy.txt", NULL), "w"); //распределение температуры в плоскости xy  
+    fopen_s(&f2, g_build_filename(DIR_TEMP,"out_Tz.txt", NULL), "w");  //зависимость температуры от глубины в центре трека в момент времени достижения максимальной температуры
+    fopen_s(&f3, g_build_filename(DIR_TEMP,"out_Tt.txt", NULL), "w");  // зависимость темпеарутры поверхности для точки в центре трека от времени
+    fopen_s(&f4, g_build_filename(DIR_TEMP,"out_test.txt", NULL), "w"); 
+    fopen_s(&f5, g_build_filename(DIR_TEMP,"out_Txz.txt", NULL), "w");  //распределение температуры в плоскости xz  
+    fopen_s(&f6, g_build_filename(DIR_TEMP,"out_Tyz.txt", NULL), "w");  //распределение температуры в плоскости yz  
     int i, j, k, t, tmax1, tmax2, np, Np, np0;
     int i0, ind, i00 = 30;
     int ni;

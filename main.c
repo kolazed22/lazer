@@ -9,22 +9,21 @@ static void on_dropdown_selection_changed(GtkDropDown *dropdown, GParamSpec *psp
 
     // Получаем модель данных
     GListModel *model = gtk_drop_down_get_model(dropdown);
-
+    
     // Получаем строку по выбранному индексу
     if (selected_index < g_list_model_get_n_items(model)) {
         GObject *item = g_list_model_get_item(model, selected_index);
         const char *selected_text = gtk_string_object_get_string(GTK_STRING_OBJECT(item));
-        // g_print("Selected: %s\n", selected_text);
-        Data_TC data_C = fread_TC(g_build_filename(directory_path_materials, g_strconcat(selected_text, "_C.txt", NULL), NULL));
         
-        draw_plot_TC(data_C, "plot_C.png");
+        Data_TC data_C = fread_TC(g_build_filename(directory_path_materials, g_strconcat(selected_text, "_C.txt", NULL), NULL));
+        draw_plot_TC(data_C, g_build_filename(DIR_TEMP, "plot_C.png", NULL));
         freeData_TC(&data_C);
-        gtk_image_set_from_file(GTK_IMAGE(image_plot_C), "plot_C.png");
+        gtk_image_set_from_file(GTK_IMAGE(image_plot_C), g_build_filename(DIR_TEMP, "plot_C.png", NULL));
 
         Data_TC data_a = fread_TC(g_build_filename(directory_path_materials, g_strconcat(selected_text, "_a.txt", NULL), NULL));
-        draw_plot_TC(data_a, "plot_a.png");
+        draw_plot_TC(data_a, g_build_filename(DIR_TEMP,"plot_a.png", NULL));
         freeData_TC(&data_a);
-        gtk_image_set_from_file(GTK_IMAGE(image_plot_a), "plot_a.png");
+        gtk_image_set_from_file(GTK_IMAGE(image_plot_a), g_build_filename(DIR_TEMP,"plot_a.png", NULL));
 
         g_object_unref(item); // Освобождаем ссылку на объект
     }
@@ -74,29 +73,29 @@ static GtkStringList *get_materials_from_directory(const char *directory_path) {
 }
 
 void update_plots(GtkWidget *widget, gpointer data){
-    Data_Tt data_Tt = fread_Tt("out_Tt.txt");
-    draw_plot_Tt(data_Tt, "plotTt.png");
+    Data_Tt data_Tt = fread_Tt(g_build_filename(DIR_TEMP,"out_Tt.txt", NULL));
+    draw_plot_Tt(data_Tt, g_build_filename(DIR_TEMP,"plotTt.png", NULL));
     freeData_Tt(&data_Tt);
 
-    Data_Txx data_Txy = fread_Txx("out_Txy.txt");
+    Data_Txx data_Txy = fread_Txx(g_build_filename(DIR_TEMP,"out_Txy.txt", NULL));
     Data_Txx data_Txy_shape = shape_Txx(&data_Txy);
-    draw_heatmap(data_Txy_shape, 300, 300, "heatmapTxy.png");
+    draw_heatmap(data_Txy_shape, 300, 300, g_build_filename(DIR_TEMP,"heatmapTxy.png", NULL));
     freeData_Txx(&data_Txy_shape);
 
-    Data_Txx data_Txz = fread_Txx("out_Txz.txt");
+    Data_Txx data_Txz = fread_Txx(g_build_filename(DIR_TEMP,"out_Txz.txt", NULL));
     Data_Txx data_Txz_shape = shape_Txx(&data_Txz);
-    draw_heatmap(data_Txz_shape, 300, 300, "heatmapTxz.png");
+    draw_heatmap(data_Txz_shape, 300, 300, g_build_filename(DIR_TEMP,"heatmapTxz.png", NULL));
     freeData_Txx(&data_Txz_shape);
 
-    Data_Txx data_Tyz = fread_Txx("out_Tyz.txt");
+    Data_Txx data_Tyz = fread_Txx(g_build_filename(DIR_TEMP,"out_Tyz.txt", NULL));
     Data_Txx data_Tyz_shape = shape_Txx(&data_Tyz);
-    draw_heatmap(data_Tyz_shape, 300, 300, "heatmapTyz.png");
+    draw_heatmap(data_Tyz_shape, 300, 300, g_build_filename(DIR_TEMP,"heatmapTyz.png", NULL));
     freeData_Txx(&data_Tyz_shape);
 
-    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxy), "heatmapTxy.png");
-    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxz), "heatmapTxz.png");
-    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTyz), "heatmapTyz.png");
-    gtk_image_set_from_file(GTK_IMAGE(image_plotTt)    , "plotTt.png"    );
+    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxy), g_build_filename(DIR_TEMP,"heatmapTxy.png", NULL));
+    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTxz), g_build_filename(DIR_TEMP,"heatmapTxz.png", NULL));
+    gtk_image_set_from_file(GTK_IMAGE(image_heatmapTyz), g_build_filename(DIR_TEMP,"heatmapTyz.png", NULL));
+    gtk_image_set_from_file(GTK_IMAGE(image_plotTt)    , g_build_filename(DIR_TEMP,"plotTt.png", NULL)    );
 
 }
 
@@ -160,10 +159,10 @@ static void activate(GtkApplication *app, gpointer user_data)
 
     GtkWidget *v_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
     gtk_box_append(GTK_BOX(h_box), v_box);
-    image_plot_a = gtk_image_new_from_file ("plot_a.png");
+    image_plot_a = gtk_image_new_from_file (g_build_filename(DIR_TEMP,"plot_a.png", NULL));
     gtk_widget_set_size_request(image_plot_a, 200, 200);
     gtk_box_append(GTK_BOX(v_box), image_plot_a);
-    image_plot_C = gtk_image_new_from_file ("plot_C.png");
+    image_plot_C = gtk_image_new_from_file (g_build_filename(DIR_TEMP,"plot_C.png", NULL));
     gtk_widget_set_size_request(image_plot_C, 200, 200);
     gtk_box_append(GTK_BOX(v_box), image_plot_C);
 
@@ -172,7 +171,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkStringList *materials = get_materials_from_directory(directory_path_materials);
 
     if (g_list_model_get_n_items(G_LIST_MODEL(materials)) == 0) {
-        g_print("No materials found in directory: %s\n", directory_path_materials);
+        g_critical("No materials found in directory: %s\n", directory_path_materials);
         return;
     }
     // Создаем выпадающий список
@@ -203,13 +202,13 @@ static void activate(GtkApplication *app, gpointer user_data)
 
     GtkWidget *entry_Nx1 = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nx1),  GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси х локальной сетки"),1,1,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси x локальной сетки"),1,1,1,1);
     gtk_grid_attach(GTK_GRID(grid2), entry_Nx1, 2,1,1,1);
     gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,1,1,1);
 
     GtkWidget *entry_Ny = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_Ny),  GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси у"),1,2,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси y"),1,2,1,1);
     gtk_grid_attach(GTK_GRID(grid2), entry_Ny, 2,2,1,1);
     gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,2,1,1);
 
@@ -221,7 +220,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 
     GtkWidget *entry_Nx2 = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_Nx2),  GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси х глобальной сетки"),1,4,1,1);
+    gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Число узлов по оси x глобальной сетки"),1,4,1,1);
     gtk_grid_attach(GTK_GRID(grid2), entry_Nx2, 2,4,1,1);
     gtk_grid_attach(GTK_GRID(grid2), gtk_label_new("Узлов"),3,4,1,1);
 
@@ -240,19 +239,19 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_grid_attach(GTK_GRID(grid3), button_plots, 1, 1, 2, 1);
     g_signal_connect(button_plots, "clicked", G_CALLBACK (update_plots), NULL);
 
-    image_heatmapTxy = gtk_image_new_from_file ("heatmapTxy.png");
+    image_heatmapTxy = gtk_image_new_from_file (g_build_filename(DIR_TEMP,"heatmapTxy.png", NULL));
     gtk_grid_attach(GTK_GRID(grid3), image_heatmapTxy, 1,2,1,1);
     gtk_widget_set_size_request(image_heatmapTxy, 300, 300);
 
-    image_heatmapTxz = gtk_image_new_from_file ("heatmapTxz.png");
+    image_heatmapTxz = gtk_image_new_from_file (g_build_filename(DIR_TEMP,"heatmapTxz.png", NULL));
     gtk_grid_attach(GTK_GRID(grid3), image_heatmapTxz, 2,2,1,1);
     gtk_widget_set_size_request(image_heatmapTxz, 300, 300);
 
-    image_heatmapTyz = gtk_image_new_from_file ("heatmapTyz.png");
+    image_heatmapTyz = gtk_image_new_from_file (g_build_filename(DIR_TEMP,"heatmapTyz.png", NULL));
     gtk_grid_attach(GTK_GRID(grid3), image_heatmapTyz, 1,3,1,1);
     gtk_widget_set_size_request(image_heatmapTyz, 300, 300);
 
-    image_plotTt = gtk_image_new_from_file ("plotTt.png");
+    image_plotTt = gtk_image_new_from_file (g_build_filename(DIR_TEMP,"plotTt.png", NULL));
     gtk_grid_attach(GTK_GRID(grid3), image_plotTt, 2,3,1,1);
     gtk_widget_set_size_request(image_plotTt, 300, 300);
     
