@@ -1,0 +1,13 @@
+{
+    "name": "Титан BT6",
+    "A": 0.4,
+    "m0": 7.8e-26,
+    "Tb": 3560,
+    "Lev": 4e10,
+    "pol": 4100,    "conductivity_image": "titanuim_BT6_cond.png",
+    "capacity_image": "titanuim_BT6_cap.png",
+    "absorption_image": "titanuim_BT6_abs.png",
+    "conductivity_data": "titanuim_BT6_cond.txt",
+    "capacity_data": "titanuim_BT6_cap.txt",
+    "absorption_data": "titanuim_BT6_abs.txt"
+}

@@ -1,0 +1,14 @@
+{
+    "name": "Титан BT1",
+    "A": 0.38,
+    "m0": 7.8e-26,
+    "Tb": 3560,
+    "Lev": 4e10,
+    "pol": 4100,    
+    "conductivity_image": "titanuim_BT1_cond.png",
+    "capacity_image": "titanuim_BT1_cap.png",
+    "absorption_image": "titanuim_BT1_abs.png",
+    "conductivity_data": "titanuim_BT1_cond.txt",
+    "capacity_data": "titanuim_BT1_cap.txt",
+    "absorption_data": "titanuim_BT1_abs.txt"
+}
