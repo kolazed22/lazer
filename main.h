@@ -89,9 +89,9 @@ typedef struct {
     double pol;
     char conductivity_image[256];
     char capacity_image[256];
+    char absorption_image[256];
     char conductivity_data[256];
     char capacity_data[256];
-    char absorption_image[256];
     char absorption_data[256];
 } Material;
 

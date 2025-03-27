@@ -29,60 +29,8 @@ int count_json_files(const char *directory) {
     return count;
 }
 
-// Вспомогательная функция для извлечения значения между кавычками
-void extract_string(const char *json, const char *key, char *result, size_t result_size) {
-    char search_key[256];
-    snprintf(search_key, sizeof(search_key), "\"%s\":\"", key);
-    const char *start = strstr(json, search_key);
-    if (!start) {
-        result[0] = '\0'; // Если ключ не найден, возвращаем пустую строку
-        return;
-    }
-
-    start += strlen(search_key); // Перемещаемся к началу значения
-    const char *end = strchr(start, '"');
-    if (!end) {
-        result[0] = '\0'; // Если значение некорректно, возвращаем пустую строку
-        return;
-    }
-
-    size_t length = end - start;
-    if (length >= result_size) {
-        length = result_size - 1; // Обрезаем, если значение слишком длинное
-    }
-    strncpy(result, start, length);
-    result[length] = '\0';
-}
-
-// Вспомогательная функция для извлечения числового значения
-void extract_number(const char *json, const char *key, double *result) {
-    char search_key[256];
-    snprintf(search_key, sizeof(search_key), "\"%s\":", key);
-
-    const char *start = strstr(json, search_key);
-    if (!start) {
-        *result = 0.0; // Если ключ не найден, возвращаем 0.0
-        return;
-    }
-
-    start += strlen(search_key); // Перемещаемся к началу значения
-    *result = strtod(start, NULL); // Преобразуем строку в число
-}
-
 Material Material_from_json(cJSON *root) {
     Material material;
-    // extract_string(json, "name", material.name, sizeof(material.name));
-    // extract_number(json, "A", &material.A);
-    // extract_number(json, "m0", &material.m0);
-    // extract_number(json, "Tb", &material.Tb);
-    // extract_number(json, "Lev", &material.Lev);
-    // extract_number(json, "pol", &material.pol);
-    // extract_string(json, "conductivity_image", material.conductivity_image, sizeof(material.conductivity_image));
-    // extract_string(json, "capacity_image", material.capacity_image, sizeof(material.capacity_image));
-    // extract_string(json, "conductivity_data", material.conductivity_data, sizeof(material.conductivity_data));
-    // extract_string(json, "capacity_data", material.capacity_data, sizeof(material.capacity_data));
-    // extract_string(json, "absorption_image", material.absorption_image, sizeof(material.absorption_image));
-    // extract_string(json, "absorption_data", material.absorption_data, sizeof(material.absorption_data));
 
     // Извлечение данных из JSON
     cJSON *name = cJSON_GetObjectItemCaseSensitive(root, "name");

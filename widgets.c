@@ -36,9 +36,13 @@ static void on_dropdown_selection_changed(GtkDropDown *dropdown, GParamSpec *psp
             else g_print("Error: %s file not found\n", file);
             g_free(file);
 
-            // Data_TC data_a = fread_TC(g_build_filename(DIRECTORY_PATH_MATERIALS, g_strconcat(selected_text, "_a.txt", NULL), NULL));
-            // draw_plot_TC(data_a, g_build_filename(DIR_TEMP,"plot_a.png", NULL));
+            // g_print("%s\n", g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->conductivity_data, NULL));
+            // Data_TC data_a = fread_TC(g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->conductivity_data, NULL));
+            // draw_plot_TC(data_a, g_build_filename(DIR_TEMP,"plot_cond.png", NULL));
             // freeData_TC(&data_a);
+            // Data_TC data_c = fread_TC(g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->capacity_data, NULL));
+            // draw_plot_TC(data_c, g_build_filename(DIR_TEMP,"plot_cap.png", NULL));
+            // freeData_TC(&data_c);
             // gtk_image_set_from_file(GTK_IMAGE(image_plot_a), g_build_filename(DIR_TEMP,"plot_a.png", NULL));
         }
     }

@@ -7,62 +7,183 @@
 #define Nz 70       //чило узлов по оси z
 #define Nx2 200     //число узлов по оси х глобальной сетки
 
+
+typedef struct {
+    double *x;
+    double *y;
+    int size;
+    double x_min;
+    double x_max;
+    double y_for_x_min;
+    double y_for_x_max;
+} DataPoints;
+
+DataPoints data_cond;
+DataPoints data_cap;
+DataPoints data_abs;
+
+DataPoints read_data_file(const char* filename) {
+    DataPoints data = {NULL, NULL, 0};
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error opening file: %s\n", filename);
+        return data;
+    }
+
+    int capacity = 100;
+    data.x = (double*)malloc(capacity * sizeof(double));
+    data.y = (double*)malloc(capacity * sizeof(double));
+    
+    if (data.x == NULL || data.y == NULL) {
+        if (data.x) free(data.x);
+        if (data.y) free(data.y);
+        data.x = NULL;
+        data.y = NULL;
+        fclose(file);
+        return data;
+    }
+
+    data.x_min = DBL_MAX;
+    data.x_max = -DBL_MAX;
+
+    while (fscanf(file, "%lf %lf", &data.x[data.size], &data.y[data.size]) == 2) {
+        if (data.x[data.size] < data.x_min) {
+            data.x_min = data.x[data.size];
+            data.y_for_x_min = data.y[data.size];
+        }
+        if (data.x[data.size] > data.x_max) {
+            data.x_max = data.x[data.size];
+            data.y_for_x_max = data.y[data.size];
+        }
+
+        data.size++;
+        if (data.size >= capacity) {
+            capacity *= 2;
+            double *new_x = (double*)realloc(data.x, capacity * sizeof(double));
+            double *new_y = (double*)realloc(data.y, capacity * sizeof(double));
+            
+            if (new_x == NULL || new_y == NULL) {
+                free(data.x);
+                free(data.y);
+                data.x = NULL;
+                data.y = NULL;
+                data.size = 0;
+                break;
+            }
+            data.x = new_x;
+            data.y = new_y;
+        }
+    }
+
+    fclose(file);
+    return data;
+}
+
+double interpolate_line(DataPoints data, double x) {
+    
+    // Если x находится вне диапазона, вернуть граничные значения
+    if (x >= data.x_max) return data.y_for_x_max;
+    if (x <= data.x_min) return data.y_for_x_min;
+    
+    // поиск граничных точек
+    int i = 0;
+    while (i < data.size - 1 && data.x[i] < x) {
+        i++;
+    }   
+
+    // Линейная интерполяция    
+    double x1 = data.x[i];
+    double x2 = data.x[i + 1];
+    double y1 = data.y[i];
+    double y2 = data.y[i + 1];
+    
+    return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
+}
+
 /*функция для вычисления теплопроводности*/
-double hcond(double T, int n_m)
+double hcond(double T)
 {
-    if(n_m == 0)  //титан BT6
-    {
-        double ks,
-        Tm = 1944;
-        ks = 6 + 0.015 * (T - 300);
-        if (T >= Tm)
-            ks = 6 + 0.015 * (Tm - 300);
-        return ks;
-    }
-    if (n_m == 1)  //титан BT1
-    {
-        double ks, Tm = 1944;
-        ks = 22.5 + 8e-6 * pow(T - 650, 2);
-        if (T > Tm)
-            ks = 22.5 + 8e-6 * pow(T - 650, 2);
-        return ks;
-    }
+    return interpolate_line(data_cond, T);
+    double ks,
+    Tm = 1944;
+    ks = 6 + 0.015 * (T - 300);
+    if (T >= Tm)
+        ks = 6 + 0.015 * (Tm - 300);
+    return ks;
+    
+    // if(n_m == 0)  //титан BT6
+    // {
+    //     double ks,
+    //     Tm = 1944;
+    //     ks = 6 + 0.015 * (T - 300);
+    //     if (T >= Tm)
+    //         ks = 6 + 0.015 * (Tm - 300);
+    //     return ks;
+    // }
+    // if (n_m == 1)  //титан BT1
+    // {
+    //     double ks, Tm = 1944;
+    //     ks = 22.5 + 8e-6 * pow(T - 650, 2);
+    //     if (T > Tm)
+    //         ks = 22.5 + 8e-6 * pow(T - 650, 2);
+    //     return ks;
+    // }
     
 }
 /*функция для вычисления теплоемкости*/
-double hcap(double T, int n_m)
+double hcap(double T)
 {
-    if (n_m == 0) //титан BT6
-    {
-        double Cs,
-            Tm = 1944, //температура плавления
-            Tb = 3560, //температура кипения
-            Lm = 1.43e9, //удельная теплота плавления Дж/м^3
-            pos = 4500,  //плотность металла, кг/м^3
-            po = 4110, //плотнотсь расплава, кг/м^3
-            dTm = 60;
-        Cs = (600 + 1.07e-5 * pow(fabs(T - 500), 2.5)) * pos;
-        if (T > Tm && T <= Tb)
-            Cs = 950 * po;
-        if (T > Tb)
-            Cs = 700 * po;
-        Cs = Cs + Lm / (dTm * sqrt(2 * pi)) * exp(-pow(T - Tm, 2) / (2 * pow(dTm, 2)));
-        return Cs;
-    }
-    if (n_m == 1) //титан BT1
-    {
-        double Cs,
-               Tm = 1944,
-               po = 4300,
-               Lm = 290e3 * po,
-               dTm = 40;
-               if (T >= Tm)
-                Cs = 840 * po;
-        Cs = (-1.1e-4 * pow(T - 2000, 2) + 840) * po + Lm / (dTm * sqrt(pi)) * exp(-pow(T - Tm, 2) / pow(dTm, 2));
-        return Cs;
-    }
+    return interpolate_line(data_cap, T);
+    double Cs,
+    Tm = 1944, //температура плавления
+    Tb = 3560, //температура кипения
+    Lm = 1.43e9, //удельная теплота плавления Дж/м^3
+    pos = 4500,  //плотность металла, кг/м^3
+    po = 4110, //плотнотсь расплава, кг/м^3
+    dTm = 60;
+    Cs = (600 + 1.07e-5 * pow(fabs(T - 500), 2.5)) * pos;
+    if (T > Tm && T <= Tb)
+        Cs = 950 * po;
+    if (T > Tb)
+        Cs = 700 * po;
+    Cs = Cs + Lm / (dTm * sqrt(2 * pi)) * exp(-pow(T - Tm, 2) / (2 * pow(dTm, 2)));
+    return Cs;
+
+    // if (n_m == 0) //титан BT6
+    // {
+    //     double Cs,
+    //         Tm = 1944, //температура плавления
+    //         Tb = 3560, //температура кипения
+    //         Lm = 1.43e9, //удельная теплота плавления Дж/м^3
+    //         pos = 4500,  //плотность металла, кг/м^3
+    //         po = 4110, //плотнотсь расплава, кг/м^3
+    //         dTm = 60;
+    //     Cs = (600 + 1.07e-5 * pow(fabs(T - 500), 2.5)) * pos;
+    //     if (T > Tm && T <= Tb)
+    //         Cs = 950 * po;
+    //     if (T > Tb)
+    //         Cs = 700 * po;
+    //     Cs = Cs + Lm / (dTm * sqrt(2 * pi)) * exp(-pow(T - Tm, 2) / (2 * pow(dTm, 2)));
+    //     return Cs;
+    // }
+    // if (n_m == 1) //титан BT1
+    // {
+    //     double Cs,
+    //            Tm = 1944,
+    //            po = 4300,
+    //            Lm = 290e3 * po,
+    //            dTm = 40;
+    //            if (T >= Tm)
+    //             Cs = 840 * po;
+    //     Cs = (-1.1e-4 * pow(T - 2000, 2) + 840) * po + Lm / (dTm * sqrt(pi)) * exp(-pow(T - Tm, 2) / pow(dTm, 2));
+    //     return Cs;
+    // }
+}/*функция для вычисления приращения тепловой энергии*/ //не нужна для основного расчета
+
+double habs(double T){
+    return interpolate_line(data_abs, T);
 }
-/*функция для вычисления приращения тепловой энергии*/ //не нужна для основного расчета
+
 double int_energy(double T)
 {
     double Eint,
@@ -75,8 +196,13 @@ double int_energy(double T)
     //Eint = 2.5e6 * (T - T0);
     return Eint;
 }
+
 int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
 {
+    data_cond = read_data_file(g_build_filename(DIRECTORY_PATH_MATERIALS, material->conductivity_data, NULL));
+    data_cap = read_data_file(g_build_filename(DIRECTORY_PATH_MATERIALS, material->capacity_data, NULL));
+    data_abs = read_data_file(g_build_filename(DIRECTORY_PATH_MATERIALS, material->absorption_data, NULL));
+
     static double T1[Nx1][Ny][Nz], T2[Nx2][Ny][Nz], H1[Nx1][Ny], H2[Nx2][Ny];  //массивы для температуры на локальной и глобальной сетках
     static double ATz1[Nz], BTz1[Nz], ATy1[Ny], BTy1[Ny], ATx1[Nx1], BTx1[Nx1];
     static double ATx2[Nx2], BTx2[Nx2], ATy2[Ny], BTy2[Ny], ATz2[Nz], BTz2[Nz];
@@ -115,12 +241,12 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
     fopen_s(&f5, g_build_filename(DIR_TEMP,"out_Txz.txt", NULL), "w");  //распределение температуры в плоскости xz  
     fopen_s(&f6, g_build_filename(DIR_TEMP,"out_Tyz.txt", NULL), "w");  //распределение температуры в плоскости yz
     fopen_s(&f7, g_build_filename(DIR_TEMP,"out_Ty.txt", NULL), "w");  //поперечные профиль температуры
-    int i, j, k, t, tmax1, tmax2, np, Np, np0, n_m;
+    int i, j, k, t, tmax1, tmax2, np, Np, np0;
     int i0, ind, i00 = 30;
     int ni;
     /*ввод скорости, частоты и средней мощности с клавиатуры*/
-    printf("Choose material (0 - titanuim (BT6), 1 - titanium (BT1)):");
-    scanf_s("%i", &n_m);
+    // printf("Choose material (0 - titanuim (BT6), 1 - titanium (BT1)):");
+    // scanf_s("%i", &n_m);
     // printf("Input tp (ns):");
     // scanf_s("%lf", &tp);
     // printf("Input r0 (um):");
@@ -149,6 +275,7 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
     //     Lev = 4e10;
     //     pol = 4100;
     // }
+    // printf("A=%.2f\nm0=%.2e\nTb=%.2f\nLev=%.2e\npol=%.2f\n", A, m0, Tb, Lev, pol);    
     // printf("P=%.2f W\nv=%.2f mm/s\nf=%.2f kHz\nr0=%.2f um\ntp=%.3f ns\n\n", P, v, f, r0, tp);
     clock_t timeprog;
     timeprog = clock();
@@ -214,8 +341,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                    q0[i][j] = A * Q0 / pow(t0, 2) * time1 * exp(-time1 / t0) * exp(-(pow((i - Nx1 / 2) * dx1 - delta, 2) + pow(y[j], 2)) / pow(r0, 2));
                    uev= 0.82 / pol * sqrt(m0 / (2 * pi * kb * T1[i][j][0])) * pa * exp(Lev * m0 / (kb * Tb * pol) * (1 - Tb / T1[i][j][0]));
                    JT = (q0[i][j] - Lev*uev) / (z[1] - z[0]);
-                   ks1 = hcond(T1[i][j][0],n_m);
-                   cs = hcap(T1[i][j][0],n_m);
+                   ks1 = hcond(T1[i][j][0]);
+                   cs = hcap(T1[i][j][0]);
                    b = -(ks1 / pow(z[1] - z[0], 2) + cs / dt1);
                    c = ks1 / pow(z[1] - z[0], 2);
                    d = -(T1[i][j][0] * cs / dt1 + JT);
@@ -225,9 +352,9 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                     {
                         JT = 0;
                         Jn = 0;
-                        ks0 = hcond(T1[i][j][k], n_m);
-                        ks1 = hcond(T1[i][j][k + 1], n_m);
-                        cs = hcap(T1[i][j][k], n_m);
+                        ks0 = hcond(T1[i][j][k]);
+                        ks1 = hcond(T1[i][j][k + 1]);
+                        cs = hcap(T1[i][j][k]);
                         a = ks0 / pow(z[k] - z[k - 1], 2);
                         b = -(cs / dt1 + ks0 / pow(z[k] - z[k - 1], 2) + ks1 / ((z[k + 1] - z[k]) * (z[k] - z[k - 1])));
                         c = ks1 / ((z[k + 1] - z[k]) * (z[k] - z[k - 1]));
@@ -236,8 +363,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                         ATz1[k] = -c / g;
                         BTz1[k] = (d - a * BTz1[k - 1]) / g;
                     }
-                    ks1= hcond(T1[i][j][Nzmax1-1], n_m);
-                    cs= hcap(T1[i][j][Nzmax1-1], n_m);
+                    ks1= hcond(T1[i][j][Nzmax1-1]);
+                    cs= hcap(T1[i][j][Nzmax1-1]);
                     a = ks1 / pow(z[Nzmax1 - 1] - z[Nzmax1 - 2], 2);
                     b = -ks1 / pow(z[Nzmax1 - 1] - z[Nzmax1 - 2], 2) - cs / dt1;
                     d = -cs / dt1*T1[i][j][Nzmax1-1];
@@ -245,15 +372,15 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                     for (k = Nzmax1 - 2; k >= 0; k--)
                       T1[i][j][k] = ATz1[k] * T1[i][j][k + 1] + BTz1[k];
                 }
-            if (r0<=10*sqrt(2.5*t0*hcond(T0, n_m)/hcap(T0, n_m))) //уловие расчета теплообмена в радиальных направлениях в течение импульса
+            if (r0<=10*sqrt(2.5*t0*hcond(T0)/hcap(T0))) //уловие расчета теплообмена в радиальных направлениях в течение импульса
             {
                 for (i = 0; i < Nx1; i++)
                     for (k = 0; k < Nzmax1; k++)
                     {
                         JT = 0;
                         Jn = 0;
-                        ks0 = hcond(T1[i][0][k], n_m);
-                        cs = hcap(T1[i][0][k], n_m);
+                        ks0 = hcond(T1[i][0][k]);
+                        cs = hcap(T1[i][0][k]);
                         b = -(ks0 / pow(y[1] - y[0], 2) + cs / dt1);
                         c = ks0 / pow(y[1] - y[0], 2);
                         d = -(T1[i][0][k] * cs / dt1 + JT);
@@ -263,9 +390,9 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                         {
                             JT = 0;
                             Jn = 0;
-                            ks0 = hcond(T1[i][j][k], n_m);
-                            ks1 = hcond(T1[i][j + 1][k], n_m);
-                            cs = hcap(T1[i][j][k], n_m);
+                            ks0 = hcond(T1[i][j][k]);
+                            ks1 = hcond(T1[i][j + 1][k]);
+                            cs = hcap(T1[i][j][k]);
                             a = ks0 / pow(y[j] - y[j - 1], 2);
                             b = -(cs / dt1 + ks0 / pow(y[j] - y[j - 1], 2) + ks1 / ((y[j + 1] - y[j]) * (y[j] - y[j - 1])));
                             c = ks1 / ((y[j + 1] - y[j]) * (y[j] - y[j - 1]));
@@ -274,8 +401,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                             ATy1[j] = -c / g;
                             BTy1[j] = (d - a * BTy1[j - 1]) / g;
                         }
-                        cs = hcap(T1[i][Nymax1][k], n_m);
-                        ks0 = hcond(T1[i][Nymax1][k], n_m);
+                        cs = hcap(T1[i][Nymax1][k]);
+                        ks0 = hcond(T1[i][Nymax1][k]);
                         JT = 0;
                         Jn = 0;
                         a = ks0 / pow(y[Nymax1] - y[Nymax1 - 1], 2);
@@ -289,8 +416,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                     for (j = 0; j <= Nymax1; j++)
                     {
                         JT = 0;
-                        ks0 = hcond(T1[0][j][k], n_m);
-                        cs = hcap(T1[0][j][k], n_m);
+                        ks0 = hcond(T1[0][j][k]);
+                        cs = hcap(T1[0][j][k]);
                         b = -(ks0 / pow(dx1, 2) + cs / dt1);
                         c = ks0 / pow(dx1, 2);
                         d = -(T1[0][j][k] * cs / dt1 + JT);
@@ -300,9 +427,9 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                         {
                             JT = 0;
                             Jn = 0;
-                            ks0 = hcond(T1[i][j][k], n_m);
-                            ks1 = hcond(T1[i + 1][j][k], n_m);
-                            cs = hcap(T1[i][j][k], n_m);
+                            ks0 = hcond(T1[i][j][k]);
+                            ks1 = hcond(T1[i + 1][j][k]);
+                            cs = hcap(T1[i][j][k]);
                             a = ks0 / pow(dx1, 2);
                             b = -(cs / dt1 + (ks0 + ks1) / pow(dx1, 2));
                             c = ks1 / pow(dx1, 2);
@@ -311,8 +438,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                             ATx1[i] = -c / g;
                             BTx1[i] = (d - a * BTx1[i - 1]) / g;
                         }
-                        cs = hcap(T1[Nx1 - 1][j][k], n_m);
-                        ks0 = hcond(T1[Nx1 - 1][j][k], n_m);
+                        cs = hcap(T1[Nx1 - 1][j][k]);
+                        ks0 = hcond(T1[Nx1 - 1][j][k]);
                         JT = 0;
                         a = ks0 / pow(dx1, 2);
                         b = -(cs / dt1 + ks0 / pow(dx1, 2));
@@ -422,9 +549,9 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                     for (k = 1; k < Nzmax2 - 1; k++)
                     {
                         JT = 0;
-                        ks0 = hcond(T2[i][j][k], n_m);
-                        ks1 = hcond(T2[i][j][k + 1], n_m);
-                        cs = hcap(T2[i][j][k], n_m);
+                        ks0 = hcond(T2[i][j][k]);
+                        ks1 = hcond(T2[i][j][k + 1]);
+                        cs = hcap(T2[i][j][k]);
                         a = ks0 / pow(z[k] - z[k - 1], 2);
                         b = -(cs / dt2 + ks0 / pow(z[k] - z[k - 1], 2) + ks1 / ((z[k + 1] - z[k]) * (z[k] - z[k - 1])));
                         c = ks1 / ((z[k + 1] - z[k]) * (z[k] - z[k - 1]));
@@ -433,8 +560,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                         ATz2[k] = -c / g;
                         BTz2[k] = (d - a * BTz2[k - 1]) / g;
                     }
-                    ks1 = hcond(T2[i][j][Nzmax2 - 1], n_m);
-                    cs = hcap(T2[i][j][Nzmax2 - 1], n_m);
+                    ks1 = hcond(T2[i][j][Nzmax2 - 1]);
+                    cs = hcap(T2[i][j][Nzmax2 - 1]);
                     a = ks1 / pow(z[Nzmax2 - 1] - z[Nzmax2 - 2], 2);
                     b = -ks1 / pow(z[Nzmax2 - 1] - z[Nzmax2 - 2], 2) - cs / dt2;
                     d = -cs / dt2 * T2[i][j][Nzmax2 - 1];
@@ -454,9 +581,9 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                     {
                         JT = 0;
                         Jn = 0;
-                        ks0 = hcond(T2[i][j][k], n_m);
-                        ks1 = hcond(T2[i][j + 1][k], n_m);
-                        cs = hcap(T2[i][j][k], n_m);
+                        ks0 = hcond(T2[i][j][k]);
+                        ks1 = hcond(T2[i][j + 1][k]);
+                        cs = hcap(T2[i][j][k]);
                         a = ks0 / pow(y[j] - y[j - 1], 2);
                         b = -(cs / dt2 + ks0 / pow(y[j] - y[j - 1], 2) + ks1 / ((y[j + 1] - y[j]) * (y[j] - y[j - 1])));
                         c = ks1 / ((y[j + 1] - y[j]) * (y[j] - y[j - 1]));
@@ -466,8 +593,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                         BTy2[j] = (d - a * BTy2[j - 1]) / g;
                       
                     }
-                    ks1 = hcond(T2[i][Nymax2 - 1][k], n_m);
-                    cs = hcap(T2[i][Nymax2 - 1][k], n_m);
+                    ks1 = hcond(T2[i][Nymax2 - 1][k]);
+                    cs = hcap(T2[i][Nymax2 - 1][k]);
                     a = ks1 / pow(y[Nymax2 - 1] - y[Nymax2 - 2], 2);
                     b = -ks1 / pow(y[Nymax2 - 1] - y[Nymax2 - 2], 2) - cs / dt2;
                     d = -cs / dt2 * T2[i][Nymax2 - 1][k];
@@ -487,9 +614,9 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                     {
                         JT = 0;
                        
-                        ks0 = hcond(T2[i][j][k], n_m);
-                        ks1 = hcond(T2[i + 1][j][k], n_m);
-                        cs = hcap(T2[i][j][k], n_m);
+                        ks0 = hcond(T2[i][j][k]);
+                        ks1 = hcond(T2[i + 1][j][k]);
+                        cs = hcap(T2[i][j][k]);
                         a = ks0 / pow(dx2, 2);
                         b = -(cs / dt2 + (ks0 + ks1) / pow(dx2, 2));
                         c = ks1 / pow(dx2, 2);
@@ -499,8 +626,8 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
                         BTx2[i] = (d - a * BTx2[i - 1]) / g;
                       
                     }
-                    ks1 = hcond(T2[Nxmax2 - 1][j][k], n_m);
-                    cs = hcap(T2[Nxmax2 - 1][j][k], n_m);
+                    ks1 = hcond(T2[Nxmax2 - 1][j][k]);
+                    cs = hcap(T2[Nxmax2 - 1][j][k]);
                     a = ks1 / pow(dx2, 2);
                     b = -ks1 / pow(dx2, 2) - cs / dt2;
                     d = -cs / dt2 * T2[Nxmax2 - 1][j][k];
@@ -567,7 +694,7 @@ int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
     fclose(f7);
     timeprog = clock() - timeprog;
     update_plots(NULL, NULL);
-    // printf("\nProgram execution time=%f s\n", (double)timeprog / CLOCKS_PER_SEC);
+    printf("\nProgram execution time=%f s\n", (double)timeprog / CLOCKS_PER_SEC);
     // system("PAUSE");
     return 0;
 
