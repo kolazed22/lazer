@@ -104,12 +104,12 @@ double interpolate_line(DataPoints data, double x) {
 double hcond(double T)
 {
     return interpolate_line(data_cond, T);
-    double ks,
-    Tm = 1944;
-    ks = 6 + 0.015 * (T - 300);
-    if (T >= Tm)
-        ks = 6 + 0.015 * (Tm - 300);
-    return ks;
+    
+    double ks, Tm = 1944;
+        ks = 22.5 + 8e-6 * pow(T - 650, 2);
+        if (T > Tm)
+            ks = 22.5 + 8e-6 * pow(T - 650, 2);
+        return ks;
     
     // if(n_m == 0)  //титан BT6
     // {
@@ -134,19 +134,15 @@ double hcond(double T)
 double hcap(double T)
 {
     return interpolate_line(data_cap, T);
+
     double Cs,
-    Tm = 1944, //температура плавления
-    Tb = 3560, //температура кипения
-    Lm = 1.43e9, //удельная теплота плавления Дж/м^3
-    pos = 4500,  //плотность металла, кг/м^3
-    po = 4110, //плотнотсь расплава, кг/м^3
-    dTm = 60;
-    Cs = (600 + 1.07e-5 * pow(fabs(T - 500), 2.5)) * pos;
-    if (T > Tm && T <= Tb)
-        Cs = 950 * po;
-    if (T > Tb)
-        Cs = 700 * po;
-    Cs = Cs + Lm / (dTm * sqrt(2 * pi)) * exp(-pow(T - Tm, 2) / (2 * pow(dTm, 2)));
+            Tm = 1944,
+            po = 4300,
+            Lm = 290e3 * po,
+            dTm = 40;
+            if (T >= Tm)
+            Cs = 840 * po;
+    Cs = (-1.1e-4 * pow(T - 2000, 2) + 840) * po + Lm / (dTm * sqrt(pi)) * exp(-pow(T - Tm, 2) / pow(dTm, 2));
     return Cs;
 
     // if (n_m == 0) //титан BT6
@@ -199,6 +195,7 @@ double int_energy(double T)
 
 int minimarker(LaserParams params, Material *material,  GtkWidget *progress_bar)
 {
+    setlocale(LC_ALL, "English_United States.1252");
     data_cond = read_data_file(g_build_filename(DIRECTORY_PATH_MATERIALS, material->conductivity_data, NULL));
     data_cap = read_data_file(g_build_filename(DIRECTORY_PATH_MATERIALS, material->capacity_data, NULL));
     data_abs = read_data_file(g_build_filename(DIRECTORY_PATH_MATERIALS, material->absorption_data, NULL));

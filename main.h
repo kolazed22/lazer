@@ -1,6 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include "cJSON.h"
 #include <gtk/gtk.h>
 #include <cairo.h>
 #include <stdio.h>
@@ -11,8 +12,10 @@
 #include <kplot.h>
 #include <dirent.h>
 #include <regex.h>
-#include "cJSON.h"
+#include <string.h>
+#include <locale.h>
 
+#define ENABLE_LOCALES
 // Путь к каталогу материалов
 #define DIRECTORY_PATH_MATERIALS "materials"
 // Путь к временным файлам
@@ -21,6 +24,7 @@
 // многопоточность
 GMutex mut;
 GThread *thread;
+
 
 // виджеты ввода
 GtkWidget *entry_P;
@@ -70,6 +74,8 @@ typedef struct {
     double min_y;
     double max_T;
     double min_T;
+    double max_T_x;
+    double max_T_y;
 } Data_Txx;
 
 typedef struct {

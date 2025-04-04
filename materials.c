@@ -31,7 +31,6 @@ int count_json_files(const char *directory) {
 
 Material Material_from_json(cJSON *root) {
     Material material;
-
     // Извлечение данных из JSON
     cJSON *name = cJSON_GetObjectItemCaseSensitive(root, "name");
     cJSON *A = cJSON_GetObjectItemCaseSensitive(root, "A");
@@ -44,8 +43,8 @@ Material Material_from_json(cJSON *root) {
     cJSON *absorption_image = cJSON_GetObjectItemCaseSensitive(root, "absorption_image");
     cJSON *conductivity_data = cJSON_GetObjectItemCaseSensitive(root, "conductivity_data");
     cJSON *capacity_data = cJSON_GetObjectItemCaseSensitive(root, "capacity_data");
-    cJSON *absorption_data = cJSON_GetObjectItemCaseSensitive(root, "absorption_data");    
-    
+    cJSON *absorption_data = cJSON_GetObjectItemCaseSensitive(root, "absorption_data");
+
     strncpy(material.name, name->valuestring, sizeof(material.name) - 1);
     material.A = A->valuedouble;
     material.m0 = m0->valuedouble;
@@ -88,18 +87,14 @@ MaterialDatabase load_material_database(const char *directory_path) {
             buffer[bytes_read] = '\0';
             // g_print("%s\n", buffer);
 
-            if (!buffer) g_warning("get_materials_from_directory: Failed to convert to UTF-8: %s\n", filename);  
-
+            if (!buffer) g_warning("get_materials_from_directory: Failed to read file: %s\n", filename);  
             // Парсинг JSON
             cJSON *root = cJSON_Parse(buffer);
-
+            
             if (!root) g_warning("get_materials_from_directory: Failed to parse JSON: %s\n", filename);
-
-
             database.materials[count] = Material_from_json(root); 
             gtk_string_list_append(database.material_names, database.materials[count].name);
             count++;
-
 
             fclose(f);
             

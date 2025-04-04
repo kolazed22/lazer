@@ -121,26 +121,33 @@ void init_widgets(GtkApplication *app) {
     
     // Инициализируем вкладки
     init_parameters_tab(notebook);
-    init_area_tab(notebook);
+    // init_area_tab(notebook);
     init_plots_tab(notebook);
     
     // Кнопка запуска
     GtkWidget *button_2 = gtk_button_new_from_icon_name("media-playback-start");
     g_signal_connect(button_2, "clicked", G_CALLBACK(click_start_button), NULL);
     gtk_notebook_set_action_widget(GTK_NOTEBOOK(notebook), button_2, GTK_PACK_END);
+
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_path(provider, g_build_filename(DIR_TEMP,"style.css", NULL));
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(),
+                                         GTK_STYLE_PROVIDER(provider),
+                                         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(provider);
 }
 
 // Инициализация вкладки параметров
 void init_parameters_tab(GtkWidget *notebook) {
-    GtkWidget *h_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    GtkWidget *b_grid = gtk_grid_new();
     GtkWidget *grid = gtk_grid_new();
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), h_box, gtk_label_new("Параметры лазера"));
-    gtk_box_append(GTK_BOX(h_box), grid);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), b_grid, gtk_label_new("Параметры лазера"));
+    gtk_grid_attach(GTK_GRID(b_grid), grid, 0, 0, 1, 1);
 
     // Поле ввода мощности
     entry_P = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_P), GTK_INPUT_PURPOSE_NUMBER); 
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мощьность"), 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мощность"), 1, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), entry_P, 2, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Вт"), 3, 1, 1, 1);
 
@@ -161,38 +168,16 @@ void init_parameters_tab(GtkWidget *notebook) {
     // Поле ввода длительности импульса
     entry_tp = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_tp), GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("длительнось импульса"), 1, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("длительность импульса"), 1, 4, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), entry_tp, 2, 4, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), gtk_label_new("нс"), 3, 4, 1, 1);
 
     // Поле ввода радиуса пучка по уровню e^-1
     entry_r0 = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_r0), GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("радиус пучка по уровню e^-1"), 1, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("радиус пучка"), 1, 5, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), entry_r0, 2, 5, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мкм"), 3, 5, 1, 1);
-
-    // Прогресс-бар
-    progress_bar = gtk_progress_bar_new();
-    gtk_grid_attach(GTK_GRID(grid), progress_bar, 1, 6, 3, 1);
-
-    // Вертикальный бокс для графиков и выпадающего списка
-    GtkWidget *v_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
-    gtk_box_append(GTK_BOX(h_box), v_box);
-    
-    // Графики
-    // теплопроводность
-    image_plot_cond = gtk_image_new_from_file(NULL);
-    gtk_widget_set_size_request(image_plot_cond, 200, 200);
-    gtk_box_append(GTK_BOX(v_box), image_plot_cond);
-    // теплоемкость
-    image_plot_cap = gtk_image_new_from_file(NULL);
-    gtk_widget_set_size_request(image_plot_cap, 200, 200);
-    gtk_box_append(GTK_BOX(v_box), image_plot_cap);
-    // коэффициент поглощения
-    image_plot_abs = gtk_image_new_from_file(NULL);
-    gtk_widget_set_size_request(image_plot_abs, 200, 200);
-    gtk_box_append(GTK_BOX(v_box), image_plot_abs);
 
     // Выпадающий список материалов
     material_database = load_material_database(DIRECTORY_PATH_MATERIALS);
@@ -203,7 +188,8 @@ void init_parameters_tab(GtkWidget *notebook) {
     }
     
     dropdown = gtk_drop_down_new(G_LIST_MODEL(material_database.material_names), NULL);
-    gtk_box_append(GTK_BOX(v_box), dropdown);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("материал"), 1, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), dropdown, 2, 6, 1, 1);
     gtk_drop_down_set_enable_search(GTK_DROP_DOWN(dropdown), TRUE);
 
     // Настройка выражения для извлечения текста
@@ -213,8 +199,41 @@ void init_parameters_tab(GtkWidget *notebook) {
 
     // Подключение обработчика сигнала
     g_signal_connect(dropdown, "notify::selected", G_CALLBACK(on_dropdown_selection_changed), NULL);
+
+    
+    // Графики
+    // теплопроводность
+    GtkWidget *v_box1 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
+    gtk_grid_attach(GTK_GRID(b_grid), v_box1, 1, 0, 1, 1);
+    image_plot_cond = gtk_image_new_from_file(NULL);
+    gtk_widget_set_size_request(image_plot_cond, 250, 250);
+    gtk_box_append(GTK_BOX(v_box1), image_plot_cond);
+    gtk_box_append(GTK_BOX(v_box1), gtk_label_new("теплопроводность"));
+
+    // теплоемкость
+    GtkWidget *v_box2 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
+    gtk_grid_attach(GTK_GRID(b_grid), v_box2, 0, 1, 1, 1);
+    image_plot_cap = gtk_image_new_from_file(NULL);
+    gtk_widget_set_size_request(image_plot_cap, 250, 250);
+    gtk_box_append(GTK_BOX(v_box2), image_plot_cap);
+    gtk_box_append(GTK_BOX(v_box2), gtk_label_new("теплоемкость"));
+
+    // коэффициент поглощения
+    GtkWidget *v_box3 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
+    gtk_grid_attach(GTK_GRID(b_grid), v_box3, 1, 1, 1, 1);
+    image_plot_abs = gtk_image_new_from_file(NULL);
+    gtk_widget_set_size_request(image_plot_abs, 250, 250);
+    gtk_box_append(GTK_BOX(v_box3), image_plot_abs);
+    gtk_box_append(GTK_BOX(v_box3), gtk_label_new("поглощательная способность"));
+
+    // Прогресс-бар
+    progress_bar = gtk_progress_bar_new();
+    gtk_grid_attach(GTK_GRID(b_grid), progress_bar, 0, 2, 2, 1);
+
+    // вызов обновления графиков
     on_dropdown_selection_changed(GTK_DROP_DOWN(dropdown), NULL, NULL);
-}// Инициализация вкладки области
+}
+// Инициализация вкладки области
 void init_area_tab(GtkWidget *notebook) {
     GtkWidget *grid2 = gtk_grid_new();
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), grid2, gtk_label_new("область"));

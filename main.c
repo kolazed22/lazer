@@ -15,6 +15,9 @@ static void activate(GtkApplication *app, gpointer user_data)
 
 int main(int argc, char **argv)
 {
+    g_print("\n");
+    setlocale(LC_ALL, "English_United States.1252");
+
     GtkApplication *app;
     int status;
 
