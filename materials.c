@@ -2,6 +2,7 @@
 
 // количество json файлов в каталоге
 int count_json_files(const char *directory) {
+    setlocale(LC_ALL, "English_United States.1252");
     DIR *dir;
     struct dirent *entry;
     int count = 0;
@@ -62,6 +63,7 @@ Material Material_from_json(cJSON *root) {
 }
 // Функция для получения database материалов из каталога
 MaterialDatabase load_material_database(const char *directory_path) {
+    setlocale(LC_ALL, "English_United States.1252");
     DIR *dir;
     struct dirent *entry;
     MaterialDatabase database;

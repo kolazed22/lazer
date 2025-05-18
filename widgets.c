@@ -21,22 +21,19 @@ static void on_dropdown_selection_changed(GtkDropDown *dropdown, GParamSpec *psp
         }
         
         if (selected_material) {
-            char *file = g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->conductivity_image, NULL);
+            gchar *file = g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->conductivity_image, NULL);
             if (g_file_test(file, G_FILE_TEST_EXISTS)) gtk_image_set_from_file(GTK_IMAGE(image_plot_cond), file);
             else g_print("Error: %s file not found\n", file);
-            g_free(file);
 
             file = g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->capacity_image, NULL);
             if (g_file_test(file, G_FILE_TEST_EXISTS)) gtk_image_set_from_file(GTK_IMAGE(image_plot_cap), file);
             else g_print("Error: %s file not found\n", file);
-            g_free(file);
 
             file = g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->absorption_image, NULL);
             if (g_file_test(file, G_FILE_TEST_EXISTS)) gtk_image_set_from_file(GTK_IMAGE(image_plot_abs), file);
             else g_print("Error: %s file not found\n", file);
-            g_free(file);
 
-            // g_print("%s\n", g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->conductivity_data, NULL));
+            // g_print("%s\n", file);
             // Data_TC data_a = fread_TC(g_build_filename(DIRECTORY_PATH_MATERIALS, selected_material->conductivity_data, NULL));
             // draw_plot_TC(data_a, g_build_filename(DIR_TEMP,"plot_cond.png", NULL));
             // freeData_TC(&data_a);
@@ -144,40 +141,60 @@ void init_parameters_tab(GtkWidget *notebook) {
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), b_grid, gtk_label_new("Параметры лазера"));
     gtk_grid_attach(GTK_GRID(b_grid), grid, 0, 0, 1, 1);
 
+    // Поле ввода длины волны / не активно
+    GtkWidget *entry_nm = gtk_entry_new();
+    gtk_editable_set_text(GTK_EDITABLE(entry_nm), "1024");
+    gtk_editable_set_editable(GTK_EDITABLE(entry_nm), FALSE);
+    gtk_widget_set_sensitive(entry_nm, FALSE);
+    gtk_entry_set_input_purpose(GTK_ENTRY(entry_nm), GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Длина волны излучения"), 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_nm, 2, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("нм"), 3, 1, 1, 1);
+
+    // Поле выбора профиля пучка / не активно
+    GtkWidget *dropdown_beam_profile = gtk_entry_new();
+    gtk_editable_set_text(GTK_EDITABLE(dropdown_beam_profile), "Гауссовый");
+    gtk_editable_set_editable(GTK_EDITABLE(dropdown_beam_profile), FALSE);
+    gtk_widget_set_sensitive(dropdown_beam_profile, FALSE);
+    gtk_entry_set_input_purpose(GTK_ENTRY(dropdown_beam_profile), GTK_INPUT_PURPOSE_NUMBER);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Вид профиля пучка"), 1, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), dropdown_beam_profile, 2, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new(""), 3, 2, 1, 1);
+
     // Поле ввода мощности
     entry_P = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_P), GTK_INPUT_PURPOSE_NUMBER); 
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мощность"), 1, 1, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), entry_P, 2, 1, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Вт"), 3, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мощность"), 1, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_P, 2, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Вт"), 3, 3, 1, 1);
 
     // Поле ввода скорости
     entry_V = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_V), GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("скорость"), 1, 2, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), entry_V, 2, 2, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мм/c"), 3, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("скорость"), 1, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_V, 2, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мм/c"), 3, 4, 1, 1);
 
     // Поле ввода частоты
     entry_F = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_F), GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("частота"), 1, 3, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), entry_F, 2, 3, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("кГц"), 3, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("частота"), 1, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_F, 2, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("кГц"), 3, 5, 1, 1);
 
     // Поле ввода длительности импульса
     entry_tp = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_tp), GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("длительность импульса"), 1, 4, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), entry_tp, 2, 4, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("нс"), 3, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("длительность импульса"), 1, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_tp, 2, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("нс"), 3, 6, 1, 1);
 
     // Поле ввода радиуса пучка по уровню e^-1
     entry_r0 = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry_r0), GTK_INPUT_PURPOSE_NUMBER);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("радиус пучка"), 1, 5, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), entry_r0, 2, 5, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мкм"), 3, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("радиус пучка"), 1, 7, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_r0, 2, 7, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("мкм"), 3, 7, 1, 1);
 
     // Выпадающий список материалов
     material_database = load_material_database(DIRECTORY_PATH_MATERIALS);
@@ -188,8 +205,8 @@ void init_parameters_tab(GtkWidget *notebook) {
     }
     
     dropdown = gtk_drop_down_new(G_LIST_MODEL(material_database.material_names), NULL);
-    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("материал"), 1, 6, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), dropdown, 2, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("материал"), 1, 8, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), dropdown, 2, 8, 1, 1);
     gtk_drop_down_set_enable_search(GTK_DROP_DOWN(dropdown), TRUE);
 
     // Настройка выражения для извлечения текста
@@ -205,7 +222,7 @@ void init_parameters_tab(GtkWidget *notebook) {
     // теплопроводность
     GtkWidget *v_box1 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
     gtk_grid_attach(GTK_GRID(b_grid), v_box1, 1, 0, 1, 1);
-    image_plot_cond = gtk_image_new_from_file(NULL);
+    image_plot_cond = gtk_image_new_from_file("materials/titanuim_BT1_cond.png");
     gtk_widget_set_size_request(image_plot_cond, 250, 250);
     gtk_box_append(GTK_BOX(v_box1), image_plot_cond);
     gtk_box_append(GTK_BOX(v_box1), gtk_label_new("теплопроводность"));
